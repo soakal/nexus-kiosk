@@ -52,7 +52,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Production static file serving for client/dist
 if (process.env.NODE_ENV === 'production') {
-  const clientDistPath = path.resolve(__dirname, '..', '..', '..', 'client', 'dist');
+  const clientDistPath = path.resolve(__dirname, '..', '..', 'client', 'dist');
   app.use(express.static(clientDistPath));
 
   // SPA fallback: serve index.html for any unmatched route

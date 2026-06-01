@@ -16,12 +16,12 @@ echo -e "${YELLOW}Step 1: Configuration${NC}"
 # BLOCK A — Non-interactive mode
 # If NON_INTERACTIVE=1 is set, use env vars and skip all prompts.
 if [ "${NON_INTERACTIVE:-}" = "1" ]; then
-    INSTALL_DIR="${INSTALL_DIR:-/home/pi/nexus-kiosk}"
+    INSTALL_DIR="${INSTALL_DIR:-/home/$USER/nexus-kiosk}"
     KIOSK_USER="${KIOSK_USER:-$USER}"
     echo "Non-interactive mode: using provided environment variables"
 else
-    read -p "Enter installation directory (default: /home/pi/nexus-kiosk): " INSTALL_DIR
-    INSTALL_DIR=${INSTALL_DIR:-/home/pi/nexus-kiosk}
+    read -p "Enter installation directory (default: /home/$USER/nexus-kiosk): " INSTALL_DIR
+    INSTALL_DIR=${INSTALL_DIR:-/home/$USER/nexus-kiosk}
 
     read -p "Enter kiosk user (default: $USER): " KIOSK_USER
     KIOSK_USER=${KIOSK_USER:-$USER}
@@ -75,6 +75,9 @@ cd "$INSTALL_DIR"
 echo "Installing npm packages in $INSTALL_DIR..."
 npm install
 
+# Fix execute permissions on bin scripts (required when files were copied from Windows)
+find "$INSTALL_DIR" -path "*/node_modules/.bin/*" -exec chmod +x {} \; 2>/dev/null || true
+
 # Ensure we're in the right directory for build
 if [ -f "package.json" ]; then
     echo "Building project..."
@@ -100,6 +103,13 @@ if [ ! -f "$INSTALL_DIR/.env" ]; then
             sed -i "s|ENCRYPTION_SECRET=.*|ENCRYPTION_SECRET=$ENCRYPTION_SECRET|" "$INSTALL_DIR/.env"
         else
             echo "ENCRYPTION_SECRET=$ENCRYPTION_SECRET" >> "$INSTALL_DIR/.env"
+        fi
+
+        # Ensure NODE_ENV=production for deployed installs
+        if grep -q "NODE_ENV=" "$INSTALL_DIR/.env"; then
+            sed -i "s|NODE_ENV=.*|NODE_ENV=production|" "$INSTALL_DIR/.env"
+        else
+            echo "NODE_ENV=production" >> "$INSTALL_DIR/.env"
         fi
 
         echo "Environment file configured with encryption secret"

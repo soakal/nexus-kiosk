@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import type { CalendarEvent, AppConfig, SharePointFile } from "../types/index";
 import Clock from "./Clock";
 import NextEventBadge from "./NextEventBadge";
@@ -205,6 +206,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           >
             Ctrl+F Files
           </button>
+          <span>|</span>
+          <Link to="/board" className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors text-xs">
+            📋 <span>Board</span>
+          </Link>
         </div>
       </footer>
 
@@ -243,6 +248,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           >
             📁
           </button>
+          <Link to="/board" className="p-2 text-slate-500 hover:text-slate-300 text-lg">📋</Link>
         </div>
       </div>
     </div>

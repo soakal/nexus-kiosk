@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Kiosk — Project Board</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-page:    #0f1117;
+    --bg-header:  #13171f;
+    --bg-card:    #1a1f2e;
+    --border:     #1e2433;
+    --border-mid: #2a3348;
+    --text-primary:   #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --color-none:     #475569;
+    --color-progress: #facc15;
+    --color-ready:    #3b82f6;
+    --color-shipped:  #22c55e;
+    --color-amber:    #f59e0b;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --transition: 0.18s ease;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    height: 56px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .logo-img {
+    height: 28px;
+    width: auto;
+    object-fit: contain;
+    /* fallback if image missing */
+    background: transparent;
+  }
+
+  .logo-fallback {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    color: #fff;
+  }
+
+  .logo-fallback .vrsi-badge {
+    background: #2563eb;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-left: 1px solid var(--border-mid);
+    padding-left: 10px;
+  }
+
+  /* TABS */
+  .header-tabs {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    flex: 1;
+    justify-content: center;
+    height: 100%;
+  }
+
+  .tab-btn {
+    position: relative;
+    padding: 0 18px;
+    height: 56px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color var(--transition), background var(--transition);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .tab-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+  .tab-btn.active { color: #fff; }
+
+  .tab-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .acting-as-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(59,130,246,0.15);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 999px;
+    padding: 4px 10px 4px 12px;
+    font-size: 13px;
+    color: #93c5fd;
+  }
+
+  .acting-as-pill.empty {
+    background: rgba(255,255,255,0.04);
+    border-color: var(--border-mid);
+    color: var(--text-muted);
+  }
+
+  .acting-as-pill button {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    color: #93c5fd;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition);
+  }
+  .acting-as-pill button:hover { background: rgba(255,255,255,0.25); }
+
+  .dashboard-link {
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition), background var(--transition);
+    border: 1px solid var(--border-mid);
+  }
+  .dashboard-link:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+  /* ── MAIN CONTENT ── */
+  #main {
+    padding: 24px 28px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── JOB CARDS ── */
+  .cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .job-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--color-none);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: border-left-color var(--transition), box-shadow var(--transition);
+  }
+  .job-card:hover { box-shadow: 0 2px 18px rgba(0,0,0,0.35); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px 10px;
+    flex-wrap: wrap;
+  }
+
+  .job-id {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+
+  .job-meta {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+
+  .job-meta .separator { color: var(--border-mid); }
+
+  .ship-date-header {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .ship-warn { color: var(--color-amber); }
+
+  .status-badge {
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .badge-none     { background: rgba(71,85,105,0.25); color: #94a3b8; border: 1px solid rgba(71,85,105,0.5); }
+  .badge-progress { background: rgba(250,204,21,0.15); color: #fde68a; border: 1px solid rgba(250,204,21,0.4); }
+  .badge-ready    { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); }
+  .badge-shipped  { background: rgba(34,197,94,0.15);  color: #86efac; border: 1px solid rgba(34,197,94,0.4); }
+  .badge-amber    { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+
+  .card-body {
+    padding: 0 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Status checkboxes row */
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .status-check {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: color var(--transition);
+  }
+  .status-check:hover { color: var(--text-primary); }
+  .status-check input[type="checkbox"] { display: none; }
+  .check-box {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--border-mid);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: background var(--transition), border-color var(--transition);
+    flex-shrink: 0;
+  }
+  .status-check.checked .check-box {
+    border-color: transparent;
+  }
+  .status-check.checked-progress .check-box { background: var(--color-progress); color: #000; }
+  .status-check.checked-ready    .check-box { background: var(--color-ready);    color: #fff; }
+  .status-check.checked-shipped  .check-box { background: var(--color-shipped);  color: #000; }
+
+  /* MM / ship-date row */
+  .detail-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .detail-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+  }
+
+  .detail-label {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .detail-value { color: var(--text-secondary); }
+
+  /* Ship date override */
+  .ship-date-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .date-display {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    padding: 4px 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+  }
+  .date-display:hover { border-color: var(--color-ready); background: rgba(59,130,246,0.08); }
+
+  input[type="date"].date-input {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--color-ready);
+    border-radius: var(--radius-sm);
+    padding: 4px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    color-scheme: dark;
+  }
+
+  .btn-reset {
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-mid);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .btn-reset:hover { border-color: var(--color-amber); color: var(--color-amber); }
+
+  /* Lock message */
+  .lock-msg {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-style: italic;
+  }
+
+  /* Notes */
+  .notes-section { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 2px; }
+
+  .notes-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 0;
+    transition: color var(--transition);
+    width: 100%;
+    text-align: left;
+  }
+  .notes-toggle:hover { color: var(--text-secondary); }
+
+  .notes-chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-style: normal;
+  }
+  .notes-toggle.open .notes-chevron { transform: rotate(90deg); }
+
+  .notes-body {
+    display: none;
+    margin-top: 10px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .notes-body.open { display: flex; }
+
+  .note-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+  }
+
+  .note-text { color: var(--text-secondary); font-size: 13px; margin-bottom: 4px; }
+  .note-meta { color: var(--text-muted); font-size: 12px; }
+
+  .note-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .note-input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color var(--transition);
+  }
+  .note-input:focus { border-color: var(--color-ready); }
+  .note-input::placeholder { color: var(--text-muted); }
+
+  .btn-add-note {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--color-ready);
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity var(--transition);
+    white-space: nowrap;
+  }
+  .btn-add-note:hover { opacity: 0.85; }
+  .btn-add-note:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── USERS TAB ── */
+  .users-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .user-card {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+    position: relative;
+  }
+  .user-card:hover { border-color: var(--border-mid); background: rgba(255,255,255,0.03); box-shadow: 0 2px 14px rgba(0,0,0,0.3); }
+  .user-card.selected { border-color: var(--color-ready); background: rgba(59,130,246,0.08); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+
+  .user-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #334155, #1e293b);
+    border: 2px solid var(--border-mid);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin: 0 auto 10px;
+    transition: border-color var(--transition);
+  }
+  .user-card.selected .user-avatar { border-color: var(--color-ready); color: #93c5fd; }
+
+  .user-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .user-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .super-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-size: 11px;
+    color: #fcd34d;
+    margin-top: 6px;
+  }
+
+  .btn-signout {
+    padding: 8px 20px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-mid);
+    background: rgba(239,68,68,0.1);
+    color: #fca5a5;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    margin-top: 4px;
+  }
+  .btn-signout:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
+
+  /* Users sections */
+  .users-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* Color pickers */
+  .color-rows { display: flex; flex-direction: column; gap: 10px; }
+
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .color-label { flex: 0 0 120px; font-size: 13px; color: var(--text-secondary); }
+
+  .color-swatch {
+    width: 32px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  input[type="color"].color-swatch {
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="color"].color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type="color"].color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+  .color-hex {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-mid);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    color: var(--text-secondary);
+    width: 80px;
+    outline: none;
+  }
+  .color-hex:focus { border-color: var(--color-ready); }
+
+  .btn-save {
+    padding: 8px 20px;
+    border-radius: var(--radius-sm);
+    background: var(--color-ready);
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 14px;
+    transition: opacity var(--transition);
+  }
+  .btn-save:hover { opacity: 0.85; }
+
+  /* XLSM Import */
+  .drop-zone {
+    border: 2px dashed var(--border-mid);
+    border-radius: var(--radius-md);
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+    margin-bottom: 14px;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--color-ready); background: rgba(59,130,246,0.05); }
+
+  .drop-zone-icon { font-size: 28px; margin-bottom: 8px; }
+  .drop-zone-text { color: var(--text-secondary); font-size: 14px; }
+  .drop-zone-sub  { color: var(--text-muted);    font-size: 12px; margin-top: 4px; }
+
+  .import-result {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.25);
+    color: #86efac;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+
+  /* misc */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0 10px;
+  }
+
+  .section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .jobs-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4560; }
+
+  /* File input hidden */
+  #xlsm-input { display: none; }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    #header { flex-wrap: wrap; height: auto; padding: 10px 14px; }
+    .header-tabs { justify-content: flex-start; }
+    #main { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════ -->
+<header id="header">
+
+  <!-- LEFT: Logo + title -->
+  <div class="header-left">
+    <div class="logo-fallback">
+      <img src="client/public/logos/vrsi-white-letters.png" alt="VRSI" class="logo-img"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <span class="vrsi-badge" style="display:none">VRSI</span>
+    </div>
+    <span class="header-title">Project Board</span>
+  </div>
+
+  <!-- CENTER: Tabs -->
+  <nav class="header-tabs">
+    <button class="tab-btn active" data-tab="projects" id="tab-projects">
+      <span class="tab-dot" id="dot-projects" style="background:var(--color-progress)"></span>
+      Project
+    </button>
+    <button class="tab-btn" data-tab="spareparts" id="tab-spareparts">
+      <span class="tab-dot" id="dot-spareparts" style="background:var(--color-none)"></span>
+      Spare Parts
+    </button>
+    <button class="tab-btn" data-tab="users" id="tab-users">
+      Users
+    </button>
+  </nav>
+
+  <!-- RIGHT: Acting as pill + dashboard link -->
+  <div class="header-right">
+    <div class="acting-as-pill" id="acting-pill">
+      <span id="acting-label">Acting as: Sarah Lee</span>
+      <button id="signout-pill" title="Sign out">×</button>
+    </div>
+    <a href="mockup.html" class="dashboard-link">← Dashboard</a>
+  </div>
+
+</header>
+
+
+<!-- ═══════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════════ -->
+<main id="main">
+
+  <!-- ─── PROJECT TAB ─────────────────────────── -->
+  <div class="tab-panel active" id="panel-projects">
+    <div class="section-header-row">
+      <div>
+        <div style="font-size:16px;font-weight:600;color:var(--text-primary)">My Jobs</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Filtered to: Sarah Lee · PM</div>
+      </div>
+      <span class="jobs-count">4 jobs</span>
+    </div>
+
+    <div class="cards-list">
+
+      <!-- Card 1: In Progress -->
+      <div class="job-card" id="card-10432" data-status="progress">
+        <div class="card-header">
+          <span class="job-id">J-10432</span>
+          <span class="job-meta">
+            <span>Ford</span>
+            <span class="separator">·</span>
+            <span>PM: Sarah Lee</span>
+          </span>
+          <span class="ship-date-header">Ship: Jun 15, 2026</span>
+          <span class="status-badge badge-progress" id="badge-10432">In Progress</span>
+        </div>
+        <div class="card-body">
+          <div class="status-row">
+            <label class="status-check checked checked-progress" data-card="10432" data-stage="0">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              In Progress
+            </label>
+            <label class="status-check" data-card="10432" data-stage="1">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Ready to Ship
+            </label>
+            <label class="status-check" data-card="10432" data-stage="2">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Shipped
+            </label>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">MM</span>
+              <span class="detail-value">Dan Ortiz</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ship Date</span>
+              <div class="ship-date-field">
+                <span class="date-display" data-card="10432">Jun 15, 2026</span>
+              </div>
+            </div>
+          </div>
+          <div class="notes-section">
+            <button class="notes-toggle" data-notes="10432">
+              <i class="notes-chevron">›</i>
+              Notes <span style="color:var(--text-muted);font-size:12px">(0)</span>
+            </button>
+            <div class="notes-body" id="notes-10432">
+              <div class="note-input-row">
+                <input class="note-input" placeholder="Add a note…" data-card="10432">
+                <button class="btn-add-note" data-card="10432">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Ready to Ship (overridden date) -->
+      <div class="job-card" id="card-10445" data-status="ready">
+        <div class="card-header">
+          <span class="job-id">J-10445</span>
+          <span class="job-meta">
+            <span>GM</span>
+            <span class="separator">·</span>
+            <span>PM: Sarah Lee</span>
+          </span>
+          <span class="ship-date-header">Ship: Jun 18, 2026 <span class="ship-warn">⚠</span></span>
+          <span class="status-badge badge-ready" id="badge-10445">Ready to Ship</span>
+        </div>
+        <div class="card-body">
+          <div class="status-row">
+            <label class="status-check checked checked-progress" data-card="10445" data-stage="0">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              In Progress
+            </label>
+            <label class="status-check checked checked-ready" data-card="10445" data-stage="1">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              Ready to Ship
+            </label>
+            <label class="status-check" data-card="10445" data-stage="2">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Shipped
+            </label>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">MM</span>
+              <span class="detail-value">Dan Ortiz</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ship Date</span>
+              <div class="ship-date-field">
+                <span class="date-display overridden" data-card="10445" style="border-color:rgba(245,158,11,0.5);color:var(--color-amber)">Jun 18, 2026</span>
+                <button class="btn-reset" data-card="10445">Reset to Excel</button>
+                <span class="status-badge badge-amber" style="font-size:11px">⚠ Overridden</span>
+              </div>
+            </div>
+          </div>
+          <div class="notes-section">
+            <button class="notes-toggle open" data-notes="10445">
+              <i class="notes-chevron">›</i>
+              Notes <span style="color:var(--text-muted);font-size:12px">(1)</span>
+            </button>
+            <div class="notes-body open" id="notes-10445">
+              <div class="note-item">
+                <div class="note-text">Waiting for final inspection</div>
+                <div class="note-meta">Sarah Lee · 1 hour ago</div>
+              </div>
+              <div class="note-input-row">
+                <input class="note-input" placeholder="Add a note…" data-card="10445">
+                <button class="btn-add-note" data-card="10445">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Shipped -->
+      <div class="job-card" id="card-10401" data-status="shipped">
+        <div class="card-header">
+          <span class="job-id">J-10401</span>
+          <span class="job-meta">
+            <span>Acme Corp</span>
+            <span class="separator">·</span>
+            <span>PM: Sarah Lee</span>
+          </span>
+          <span class="ship-date-header">Ship: Jun 5, 2026</span>
+          <span class="status-badge badge-shipped" id="badge-10401">Shipped</span>
+        </div>
+        <div class="card-body">
+          <div class="status-row">
+            <label class="status-check checked checked-progress" data-card="10401" data-stage="0">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              In Progress
+            </label>
+            <label class="status-check checked checked-ready" data-card="10401" data-stage="1">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              Ready to Ship
+            </label>
+            <label class="status-check checked checked-shipped" data-card="10401" data-stage="2">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              Shipped
+            </label>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">MM</span>
+              <span class="detail-value">Dan Ortiz</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ship Date</span>
+              <div class="ship-date-field">
+                <span class="date-display" data-card="10401">Jun 5, 2026</span>
+              </div>
+            </div>
+          </div>
+          <div class="notes-section">
+            <button class="notes-toggle" data-notes="10401">
+              <i class="notes-chevron">›</i>
+              Notes <span style="color:var(--text-muted);font-size:12px">(0)</span>
+            </button>
+            <div class="notes-body" id="notes-10401">
+              <div class="note-input-row">
+                <input class="note-input" placeholder="Add a note…" data-card="10401">
+                <button class="btn-add-note" data-card="10401">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: No status / locked -->
+      <div class="job-card" id="card-10498" data-status="none">
+        <div class="card-header">
+          <span class="job-id">J-10498</span>
+          <span class="job-meta">
+            <span>Tesla</span>
+            <span class="separator">·</span>
+            <span>PM: Sarah Lee</span>
+          </span>
+          <span class="ship-date-header">Ship: Jul 2, 2026</span>
+          <span class="status-badge badge-none" id="badge-10498">Not Started</span>
+        </div>
+        <div class="card-body">
+          <div class="status-row" id="status-row-10498">
+            <label class="status-check" data-card="10498" data-stage="0">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              In Progress
+            </label>
+            <label class="status-check" data-card="10498" data-stage="1">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Ready to Ship
+            </label>
+            <label class="status-check" data-card="10498" data-stage="2">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Shipped
+            </label>
+            <span class="lock-msg" id="lock-10498">🔒 Select a user to edit</span>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">MM</span>
+              <span class="detail-value">Dan Ortiz</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ship Date</span>
+              <div class="ship-date-field">
+                <span class="date-display" data-card="10498">Jul 2, 2026</span>
+              </div>
+            </div>
+          </div>
+          <div class="notes-section">
+            <button class="notes-toggle" data-notes="10498">
+              <i class="notes-chevron">›</i>
+              Notes <span style="color:var(--text-muted);font-size:12px">(0)</span>
+            </button>
+            <div class="notes-body" id="notes-10498">
+              <div class="note-input-row">
+                <input class="note-input" placeholder="Add a note…" data-card="10498">
+                <button class="btn-add-note" data-card="10498">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /cards-list -->
+  </div><!-- /panel-projects -->
+
+
+  <!-- ─── SPARE PARTS TAB ──────────────────────── -->
+  <div class="tab-panel" id="panel-spareparts">
+    <div class="section-header-row">
+      <div>
+        <div style="font-size:16px;font-weight:600;color:var(--text-primary)">Spare Parts Jobs</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Filtered to: Matt O'Neil · PM</div>
+      </div>
+      <span class="jobs-count">2 jobs</span>
+    </div>
+
+    <div class="cards-list">
+
+      <!-- SP Card 1: In Progress -->
+      <div class="job-card" id="card-20101" data-status="progress">
+        <div class="card-header">
+          <span class="job-id">J-20101</span>
+          <span class="job-meta">
+            <span>Boeing</span>
+            <span class="separator">·</span>
+            <span>PM: Matt O'Neil</span>
+          </span>
+          <span class="ship-date-header">Ship: Jun 22, 2026</span>
+          <span class="status-badge badge-progress" id="badge-20101">In Progress</span>
+        </div>
+        <div class="card-body">
+          <div class="status-row">
+            <label class="status-check checked checked-progress" data-card="20101" data-stage="0">
+              <input type="checkbox" checked>
+              <span class="check-box">✓</span>
+              In Progress
+            </label>
+            <label class="status-check" data-card="20101" data-stage="1">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Ready to Ship
+            </label>
+            <label class="status-check" data-card="20101" data-stage="2">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Shipped
+            </label>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">MM</span>
+              <span class="detail-value">Dan Ortiz</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ship Date</span>
+              <div class="ship-date-field">
+                <span class="date-display" data-card="20101">Jun 22, 2026</span>
+              </div>
+            </div>
+          </div>
+          <div class="notes-section">
+            <button class="notes-toggle" data-notes="20101">
+              <i class="notes-chevron">›</i>
+              Notes <span style="color:var(--text-muted);font-size:12px">(0)</span>
+            </button>
+            <div class="notes-body" id="notes-20101">
+              <div class="note-input-row">
+                <input class="note-input" placeholder="Add a note…" data-card="20101">
+                <button class="btn-add-note" data-card="20101">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SP Card 2: Not Started -->
+      <div class="job-card" id="card-20115" data-status="none">
+        <div class="card-header">
+          <span class="job-id">J-20115</span>
+          <span class="job-meta">
+            <span>Lockheed</span>
+            <span class="separator">·</span>
+            <span>PM: Matt O'Neil</span>
+          </span>
+          <span class="ship-date-header">Ship: Jul 10, 2026</span>
+          <span class="status-badge badge-none" id="badge-20115">Not Started</span>
+        </div>
+        <div class="card-body">
+          <div class="status-row">
+            <label class="status-check" data-card="20115" data-stage="0">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              In Progress
+            </label>
+            <label class="status-check" data-card="20115" data-stage="1">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Ready to Ship
+            </label>
+            <label class="status-check" data-card="20115" data-stage="2">
+              <input type="checkbox">
+              <span class="check-box"></span>
+              Shipped
+            </label>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">MM</span>
+              <span class="detail-value">Dan Ortiz</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ship Date</span>
+              <div class="ship-date-field">
+                <span class="date-display" data-card="20115">Jul 10, 2026</span>
+              </div>
+            </div>
+          </div>
+          <div class="notes-section">
+            <button class="notes-toggle" data-notes="20115">
+              <i class="notes-chevron">›</i>
+              Notes <span style="color:var(--text-muted);font-size:12px">(0)</span>
+            </button>
+            <div class="notes-body" id="notes-20115">
+              <div class="note-input-row">
+                <input class="note-input" placeholder="Add a note…" data-card="20115">
+                <button class="btn-add-note" data-card="20115">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /spare-parts cards -->
+  </div><!-- /panel-spareparts -->
+
+
+  <!-- ─── USERS TAB ─────────────────────────────── -->
+  <div class="tab-panel" id="panel-users">
+
+    <!-- Section 1: Who are you? -->
+    <div class="users-section">
+      <div class="section-title">Who are you?</div>
+      <div class="users-grid" id="users-grid">
+
+        <div class="user-card selected" data-user="Sarah Lee" data-role="PM" data-initials="SL">
+          <div class="user-avatar">SL</div>
+          <div class="user-name">Sarah Lee</div>
+          <div class="user-role">Project Manager</div>
+        </div>
+
+        <div class="user-card" data-user="Dan Ortiz" data-role="MM" data-initials="DO">
+          <div class="user-avatar">DO</div>
+          <div class="user-name">Dan Ortiz</div>
+          <div class="user-role">Materials Manager</div>
+        </div>
+
+        <div class="user-card" data-user="Jon Shantry" data-role="Super" data-initials="JS">
+          <div class="user-avatar">JS</div>
+          <div class="user-name">Jon Shantry</div>
+          <div class="user-role">Administrator</div>
+          <div class="super-badge">👁 Sees everything</div>
+        </div>
+
+        <div class="user-card" data-user="Matt O'Neil" data-role="PM" data-initials="MO">
+          <div class="user-avatar">MO</div>
+          <div class="user-name">Matt O'Neil</div>
+          <div class="user-role">Project Manager</div>
+        </div>
+
+      </div>
+      <button class="btn-signout" id="signout-btn">Sign out</button>
+    </div>
+
+    <!-- Section 2: Tab Status Colors -->
+    <div class="users-section">
+      <div class="section-title">Tab Status Colors</div>
+      <div class="color-rows">
+        <div class="color-row">
+          <span class="color-label">Not Started</span>
+          <input type="color" class="color-swatch" id="color-none" value="#475569" title="Not Started color">
+          <input type="text" class="color-hex" id="hex-none" value="#475569" maxlength="7" spellcheck="false">
+        </div>
+        <div class="color-row">
+          <span class="color-label">In Progress</span>
+          <input type="color" class="color-swatch" id="color-progress" value="#facc15" title="In Progress color">
+          <input type="text" class="color-hex" id="hex-progress" value="#facc15" maxlength="7" spellcheck="false">
+        </div>
+        <div class="color-row">
+          <span class="color-label">Ready to Ship</span>
+          <input type="color" class="color-swatch" id="color-ready" value="#3b82f6" title="Ready to Ship color">
+          <input type="text" class="color-hex" id="hex-ready" value="#3b82f6" maxlength="7" spellcheck="false">
+        </div>
+        <div class="color-row">
+          <span class="color-label">Shipped</span>
+          <input type="color" class="color-swatch" id="color-shipped" value="#22c55e" title="Shipped color">
+          <input type="text" class="color-hex" id="hex-shipped" value="#22c55e" maxlength="7" spellcheck="false">
+        </div>
+      </div>
+      <button class="btn-save" id="save-colors-btn">Save Colors</button>
+      <span id="colors-saved-msg" style="display:none;margin-left:12px;font-size:13px;color:#86efac">✓ Saved</span>
+    </div>
+
+    <!-- Section 3: Import XLSM -->
+    <div class="users-section">
+      <div class="section-title">Import XLSM</div>
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-icon">📂</div>
+        <div class="drop-zone-text">Drop your XLSM or XLSX file here</div>
+        <div class="drop-zone-sub">or click to browse</div>
+      </div>
+      <input type="file" id="xlsm-input" accept=".xlsm,.xlsx">
+      <button class="btn-save" id="import-btn" style="background:var(--color-none);opacity:0.7;cursor:not-allowed" disabled>
+        Import Jobs (XLSM or XLSX)
+      </button>
+      <div class="import-result" id="import-result" style="display:none">
+        ✓ Imported 47 jobs from jobs-2026.xlsm
+      </div>
+    </div>
+
+  </div><!-- /panel-users -->
+
+</main>
+
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════ -->
+<script>
+/* ─────────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────── */
+const state = {
+  activeUser: 'Sarah Lee',
+  colors: {
+    none:     '#475569',
+    progress: '#facc15',
+    ready:    '#3b82f6',
+    shipped:  '#22c55e',
+  },
+  // card statuses: 0=none, 1=progress, 2=ready, 3=shipped
+  cardStatus: {
+    '10432': 1, '10445': 2, '10401': 3, '10498': 0,
+    '20101': 1, '20115': 0,
+  },
+  // which tab's "worst" status to show as tab dot
+  // projects panel has cards 10432, 10445, 10401, 10498
+  // spareparts panel has 20101, 20115
+  selectedFile: null,
+};
+
+/* ─────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────── */
+function statusKey(n) {
+  if (n === 0) return 'none';
+  if (n === 1) return 'progress';
+  if (n === 2) return 'ready';
+  return 'shipped';
+}
+
+function statusLabel(n) {
+  if (n === 0) return 'Not Started';
+  if (n === 1) return 'In Progress';
+  if (n === 2) return 'Ready to Ship';
+  return 'Shipped';
+}
+
+function badgeClass(n) {
+  if (n === 0) return 'badge-none';
+  if (n === 1) return 'badge-progress';
+  if (n === 2) return 'badge-ready';
+  return 'badge-shipped';
+}
+
+function worstStatus(cardIds) {
+  // "worst" = furthest from done: none < progress < ready < shipped
+  // For tab color purposes we want to show the status of the most-urgent unfinished job
+  // Priority: none > progress > ready > shipped (not-started is most alarming)
+  let min = 999;
+  for (const id of cardIds) {
+    min = Math.min(min, state.cardStatus[id] ?? 0);
+  }
+  if (min === 999) min = 0;
+  return min;
+}
+
+function getColor(key) { return state.colors[key]; }
+
+/* ─────────────────────────────────────────────────
+   UPDATE CARD VISUALS
+───────────────────────────────────────────────── */
+function updateCard(cardId) {
+  const n = state.cardStatus[cardId] ?? 0;
+  const card = document.getElementById('card-' + cardId);
+  if (!card) return;
+
+  // Border left color
+  card.style.borderLeftColor = getColor(statusKey(n));
+
+  // Status badge
+  const badge = document.getElementById('badge-' + cardId);
+  if (badge) {
+    badge.textContent = statusLabel(n);
+    badge.className = 'status-badge ' + badgeClass(n);
+  }
+
+  // Checkboxes: stages 0=progress, 1=ready, 2=shipped
+  const labels = card.querySelectorAll('.status-check');
+  labels.forEach((lbl, i) => {
+    const checked = n > i;
+    const box = lbl.querySelector('.check-box');
+    const inp = lbl.querySelector('input');
+    inp.checked = checked;
+    lbl.classList.toggle('checked', checked);
+    const stageClasses = ['checked-progress', 'checked-ready', 'checked-shipped'];
+    stageClasses.forEach((c, ci) => {
+      lbl.classList.toggle(c, checked && ci === i);
+    });
+    box.textContent = checked ? '✓' : '';
+  });
+
+  // Lock message on card 10498 (demo: show lock when no user)
+  const lockEl = document.getElementById('lock-' + cardId);
+  if (lockEl) {
+    lockEl.style.display = state.activeUser ? 'none' : 'flex';
+  }
+
+  updateTabDots();
+}
+
+/* ─────────────────────────────────────────────────
+   TAB DOTS & ACTIVE TAB UNDERLINE
+───────────────────────────────────────────────── */
+function updateTabDots() {
+  const projectCards  = ['10432', '10445', '10401', '10498'];
+  const spareCards    = ['20101', '20115'];
+
+  const pw = worstStatus(projectCards);
+  const sw = worstStatus(spareCards);
+
+  document.getElementById('dot-projects').style.background  = getColor(statusKey(pw));
+  document.getElementById('dot-spareparts').style.background = getColor(statusKey(sw));
+
+  // active tab underline
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (btn.classList.contains('active')) {
+      const tab = btn.dataset.tab;
+      if (tab === 'projects')   btn.style.borderBottomColor = getColor(statusKey(pw));
+      else if (tab === 'spareparts') btn.style.borderBottomColor = getColor(statusKey(sw));
+      else btn.style.borderBottomColor = 'transparent';
+    } else {
+      btn.style.borderBottomColor = 'transparent';
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────────
+   TAB SWITCHING
+───────────────────────────────────────────────── */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    updateTabDots();
+  });
+});
+
+/* ─────────────────────────────────────────────────
+   STATUS CHECKBOX CLICKS
+───────────────────────────────────────────────── */
+document.querySelectorAll('.status-check').forEach(lbl => {
+  lbl.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!state.activeUser) return; // locked
+
+    const cardId = lbl.dataset.card;
+    const stage  = parseInt(lbl.dataset.stage, 10); // 0=progress,1=ready,2=shipped
+    const current = state.cardStatus[cardId] ?? 0;
+    const newStatus = stage + 1; // clicking stage 0 → status 1, etc.
+
+    // Toggle: if already at or past this stage, clicking resets to one below
+    if (current > stage) {
+      // clicking a checked box: rewind to this stage
+      state.cardStatus[cardId] = stage;
+    } else {
+      // clicking an unchecked box: advance to this stage's status
+      state.cardStatus[cardId] = newStatus;
+    }
+
+    updateCard(cardId);
+  });
+});
+
+/* ─────────────────────────────────────────────────
+   NOTES TOGGLE
+───────────────────────────────────────────────── */
+document.querySelectorAll('.notes-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.notes;
+    const body = document.getElementById('notes-' + id);
+    const isOpen = body.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+  });
+});
+
+/* ─────────────────────────────────────────────────
+   ADD NOTE BUTTONS
+───────────────────────────────────────────────── */
+document.querySelectorAll('.btn-add-note').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const cardId = btn.dataset.card;
+    const input = btn.closest('.note-input-row').querySelector('.note-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const userName = state.activeUser || 'Anonymous';
+    const noteItem = document.createElement('div');
+    noteItem.className = 'note-item';
+    noteItem.innerHTML = `
+      <div class="note-text">${escHtml(text)}</div>
+      <div class="note-meta">${escHtml(userName)} · just now</div>
+    `;
+
+    const notesBody = document.getElementById('notes-' + cardId);
+    notesBody.insertBefore(noteItem, btn.closest('.note-input-row'));
+    input.value = '';
+
+    // Update count badge in toggle
+    const toggle = document.querySelector(`.notes-toggle[data-notes="${cardId}"]`);
+    if (toggle) {
+      const countEl = toggle.querySelector('span');
+      const current = parseInt(countEl.textContent.replace(/\D/g,''), 10) || 0;
+      countEl.textContent = `(${current + 1})`;
+    }
+  });
+});
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─────────────────────────────────────────────────
+   USER SELECTION
+───────────────────────────────────────────────── */
+document.querySelectorAll('.user-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.activeUser = card.dataset.user;
+    updateActingAs();
+    // Refresh lock messages
+    ['10432','10445','10401','10498','20101','20115'].forEach(id => updateCard(id));
+  });
+});
+
+function updateActingAs() {
+  const pill = document.getElementById('acting-pill');
+  const label = document.getElementById('acting-label');
+  if (state.activeUser) {
+    pill.className = 'acting-as-pill';
+    label.textContent = 'Acting as: ' + state.activeUser;
+  } else {
+    pill.className = 'acting-as-pill empty';
+    label.textContent = 'No user selected';
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   SIGN OUT (pill × button)
+───────────────────────────────────────────────── */
+function signOut() {
+  state.activeUser = null;
+  document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
+  updateActingAs();
+  // Show locks
+  ['10432','10445','10401','10498','20101','20115'].forEach(id => {
+    const lockEl = document.getElementById('lock-' + id);
+    if (lockEl) lockEl.style.display = 'flex';
+  });
+}
+
+document.getElementById('signout-pill').addEventListener('click', signOut);
+document.getElementById('signout-btn').addEventListener('click', signOut);
+
+/* ─────────────────────────────────────────────────
+   COLOR PICKERS
+───────────────────────────────────────────────── */
+const colorKeys = ['none','progress','ready','shipped'];
+colorKeys.forEach(key => {
+  const picker = document.getElementById('color-' + key);
+  const hex    = document.getElementById('hex-' + key);
+
+  picker.addEventListener('input', () => {
+    hex.value = picker.value;
+    state.colors[key] = picker.value;
+    applyColors();
+  });
+
+  hex.addEventListener('input', () => {
+    const v = hex.value;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+      picker.value = v;
+      state.colors[key] = v;
+      applyColors();
+    }
+  });
+});
+
+function applyColors() {
+  const root = document.documentElement;
+  root.style.setProperty('--color-none',     state.colors.none);
+  root.style.setProperty('--color-progress', state.colors.progress);
+  root.style.setProperty('--color-ready',    state.colors.ready);
+  root.style.setProperty('--color-shipped',  state.colors.shipped);
+
+  // Refresh card borders
+  ['10432','10445','10401','10498','20101','20115'].forEach(id => updateCard(id));
+  updateTabDots();
+}
+
+document.getElementById('save-colors-btn').addEventListener('click', () => {
+  const msg = document.getElementById('colors-saved-msg');
+  msg.style.display = 'inline';
+  setTimeout(() => { msg.style.display = 'none'; }, 2000);
+});
+
+/* ─────────────────────────────────────────────────
+   IMPORT FILE
+───────────────────────────────────────────────── */
+const dropZone   = document.getElementById('drop-zone');
+const xlsmInput  = document.getElementById('xlsm-input');
+const importBtn  = document.getElementById('import-btn');
+const importResult = document.getElementById('import-result');
+
+dropZone.addEventListener('click', () => xlsmInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+xlsmInput.addEventListener('change', () => {
+  if (xlsmInput.files[0]) handleFile(xlsmInput.files[0]);
+});
+
+function handleFile(file) {
+  state.selectedFile = file;
+  dropZone.innerHTML = `
+    <div class="drop-zone-icon">📄</div>
+    <div class="drop-zone-text" style="color:var(--color-shipped)">${escHtml(file.name)}</div>
+    <div class="drop-zone-sub">${(file.size/1024).toFixed(1)} KB · Click to change</div>
+  `;
+  importBtn.disabled = false;
+  importBtn.style.background = 'var(--color-ready)';
+  importBtn.style.opacity = '1';
+  importBtn.style.cursor = 'pointer';
+  importResult.style.display = 'none';
+}
+
+importBtn.addEventListener('click', () => {
+  if (!state.selectedFile) return;
+  importBtn.textContent = 'Importing…';
+  importBtn.disabled = true;
+  setTimeout(() => {
+    importResult.style.display = 'flex';
+    importResult.textContent = '✓ Imported 47 jobs from ' + state.selectedFile.name;
+    importBtn.textContent = 'Import Jobs (XLSM or XLSX)';
+    importBtn.disabled = false;
+  }, 900);
+});
+
+/* ─────────────────────────────────────────────────
+   RESET SHIP DATE BUTTONS
+───────────────────────────────────────────────── */
+document.querySelectorAll('.btn-reset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const cardId = btn.dataset.card;
+    const dateDisplay = document.querySelector(`.date-display[data-card="${cardId}"]`);
+    if (dateDisplay) {
+      // Restore original excel date (hard-coded for demo)
+      dateDisplay.textContent = 'Jun 18, 2026';
+      dateDisplay.style.borderColor = '';
+      dateDisplay.style.color = '';
+      dateDisplay.classList.remove('overridden');
+    }
+    btn.remove();
+    // also remove amber badge
+    const amberBadge = document.querySelector(`#card-${cardId} .badge-amber`);
+    if (amberBadge) amberBadge.remove();
+  });
+});
+
+/* ─────────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────────── */
+// Initialize all cards visually (border colors, badges match state)
+['10432','10445','10401','10498','20101','20115'].forEach(id => {
+  const card = document.getElementById('card-' + id);
+  if (card) {
+    const n = state.cardStatus[id] ?? 0;
+    card.style.borderLeftColor = getColor(statusKey(n));
+  }
+});
+
+// Init lock visibility
+document.getElementById('lock-10498').style.display = state.activeUser ? 'none' : 'flex';
+
+// Init tab underlines
+updateTabDots();
+document.getElementById('tab-projects').style.borderBottomColor = getColor('progress');
+
+// Pill init
+updateActingAs();
+</script>
+</body>
+</html>

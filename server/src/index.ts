@@ -12,6 +12,7 @@ import { calendarsRouter } from './routes/calendars.js';
 import { eventsRouter } from './routes/events.js';
 import { configRouter } from './routes/config.js';
 import { sharepointRouter } from './routes/sharepoint.js';
+import { boardRouter } from './routes/board.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +43,7 @@ app.use('/api/calendars', calendarsRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/config', configRouter);
 app.use('/api/sharepoint', sharepointRouter);
+app.use('/api/board', boardRouter);
 
 // Simple health route (outside configRouter to avoid auth dependency)
 app.get('/health', (_req: Request, res: Response) => {

@@ -1,0 +1,19 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "theme": "auto",
+  "hooks": {},
+  "permissions": {
+    "bash": {
+      "allowlist": [
+        "npm run dev",
+        "npm run build",
+        "npm install",
+        "git status",
+        "git log",
+        "pwd",
+        "ls",
+        "cat"
+      ]
+    }
+  }
+}

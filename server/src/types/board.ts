@@ -1,0 +1,57 @@
+export type JobStatus = 'none' | 'in_progress' | 'ready_to_ship' | 'shipped'
+export const STATUS_ORDER: JobStatus[] = ['none', 'in_progress', 'ready_to_ship', 'shipped']
+
+export interface Job {
+  jobNumber: string
+  pm: string
+  customer: string
+  materialsManager: string
+  pabsComplete: string | null
+  shipToPm: string | null
+  shipToCustomer: string | null
+}
+
+export interface JobNote {
+  id: string
+  authorId: string
+  authorName: string
+  text: string
+  createdAt: string
+}
+
+export interface BoardJob extends Job {
+  status: JobStatus
+  notes: JobNote[]
+  effectiveShipDate: string | null
+  shipDateOverridden: boolean
+}
+
+export interface BoardUser {
+  id: string
+  name: string
+  role: 'pm' | 'materials' | 'super' | 'manual'
+}
+
+export interface BoardConfig {
+  spareCarrier: string
+  superUser: string
+  statusColors: Record<JobStatus, string>
+  extraUsers: string[]
+}
+
+export interface Actor {
+  id: string
+  name: string
+}
+
+export const DEFAULT_BOARD_CONFIG: BoardConfig = {
+  spareCarrier: "Matt O'Neil",
+  superUser: 'Jon Shantry',
+  statusColors: {
+    none: '#475569',
+    in_progress: '#facc15',
+    ready_to_ship: '#3b82f6',
+    shipped: '#22c55e',
+  },
+  extraUsers: [],
+}

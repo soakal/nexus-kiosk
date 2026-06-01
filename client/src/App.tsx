@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStatus } from './hooks/useAuth';
 import { useConfig } from './hooks/useConfig';
 import { useEvents } from './hooks/useEvents';
@@ -11,8 +11,13 @@ import SettingsPanel from './components/SettingsPanel';
 import FileBrowserPanel from './components/FileBrowserPanel';
 import ErrorBoundary from './components/ErrorBoundary';
 
+const BoardLayout = lazy(() => import('./components/board/BoardLayout'));
+const JobListView = lazy(() => import('./components/board/JobListView'));
+const UsersView = lazy(() => import('./components/board/UsersView'));
+
 function AppInner() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Auth — always polling
   const { isAuthenticated } = useAuthStatus(true);
@@ -62,10 +67,10 @@ function AppInner() {
     setIsAuthenticated(isAuthenticated);
     if (isAuthenticated) {
       navigate('/');
-    } else {
+    } else if (!location.pathname.startsWith('/board')) {
       navigate('/setup');
     }
-  }, [isAuthenticated, navigate, setIsAuthenticated]);
+  }, [isAuthenticated, navigate, setIsAuthenticated, location.pathname]);
 
   // Sync config to store whenever it changes
   useEffect(() => {
@@ -168,6 +173,39 @@ function AppInner() {
             )
           }
         />
+        <Route
+          path="/board"
+          element={
+            <Suspense fallback={<div className="min-h-screen bg-[#0f1117]" />}>
+              <BoardLayout />
+            </Suspense>
+          }
+        >
+          <Route
+            index
+            element={
+              <Suspense fallback={null}>
+                <JobListView tab="project" />
+              </Suspense>
+            }
+          />
+          <Route
+            path="spare-parts"
+            element={
+              <Suspense fallback={null}>
+                <JobListView tab="spare-parts" />
+              </Suspense>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <Suspense fallback={null}>
+                <UsersView />
+              </Suspense>
+            }
+          />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

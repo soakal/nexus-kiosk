@@ -27,5 +27,8 @@ Frontend: React 18 + Vite + Tailwind 3 + react-big-calendar + TanStack Query v5 
 3. Open http://localhost:5173 — shows device code screen
 4. Sign in at microsoft.com/devicelogin on your phone
 
-## Linux deploy
-  bash deploy/install-linux.sh
+## Linux deploy (one command)
+  curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/master/deploy/install-linux.sh | sudo bash
+
+## Linux update (one command)
+  NEXUS_UPDATE=1 curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/master/deploy/install-linux.sh | sudo bash

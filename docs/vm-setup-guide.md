@@ -93,24 +93,24 @@ From now on `ssh username@ip` will connect without a password prompt.
 
 ## 6. Deploy the App
 
-Back on **Windows PowerShell**, from inside the project folder:
+SSH into the VM and run this single command:
 
-```powershell
-bash deploy/deploy-to-vm.sh username 192.168.x.x
+```bash
+curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/master/deploy/install-linux.sh | sudo bash
 ```
 
-Optionally specify a custom install directory as a third argument:
+Hit **Enter** twice to accept the defaults (install dir and user are auto-detected).
 
-```powershell
-bash deploy/deploy-to-vm.sh username 192.168.x.x /home/username/nexus-kiosk
-```
-
-The script will:
-- Clone (or update) the repository on the VM
-- Run the full installer non-interactively
-- Build the app and install all systemd services
+The installer will:
+- Clone the repository from GitHub automatically
+- Install Node.js if needed
+- Install all npm dependencies (with correct Linux permissions)
+- Build the client and server
+- Install all systemd services
 - Set up the weekly auto-update timer
 - Create the `nexus-kiosk` convenience command
+
+> **Note:** The GitHub repo must be public for this to work. If it's private, you'll need a GitHub token or clone manually first.
 
 ---
 
@@ -169,7 +169,7 @@ systemctl list-timers nexus-kiosk-updater.timer
 **Run an update manually at any time:**
 
 ```bash
-sudo bash ~/nexus-kiosk/deploy/auto-update.sh
+NEXUS_UPDATE=1 curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/master/deploy/install-linux.sh | sudo bash
 ```
 
 **Tail the update log:**

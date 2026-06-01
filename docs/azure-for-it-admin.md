@@ -2,7 +2,17 @@
 
 ## Section 1: What This Is (Plain English)
 
-The Nexus Kiosk dashboard displays shared Microsoft 365 calendars on wall displays. It needs a one-time App Registration in your Azure tenant so it can securely read calendar data. Setup takes about 5 minutes, requires read-only permissions only, and no data leaves your company—everything runs locally on your network.
+The VRSI Dashboard displays Microsoft 365 calendars and SharePoint files on a wall-mounted TV screen inside the office. It needs a one-time App Registration in your Azure tenant so it can securely read calendar data.
+
+**Privacy & Security — what this app does and does NOT do:**
+- ✅ Reads calendar events and SharePoint files from your own Microsoft 365 tenant
+- ✅ Runs entirely on your local network — no cloud hosting, no external servers
+- ✅ Read-only access only — it cannot create, edit, or delete anything
+- ❌ Does **not** send any data to AI services, OpenAI, Anthropic, or any third party
+- ❌ Does **not** connect to any external APIs except Microsoft's own Graph API and Open-Meteo (weather, public data only)
+- ❌ Does **not** store data outside your own network — tokens are encrypted on the local machine
+
+Setup takes about 5 minutes and requires no ongoing IT involvement.
 
 ## Section 2: Email Template for IT
 
@@ -12,27 +22,35 @@ The Nexus Kiosk dashboard displays shared Microsoft 365 calendars on wall displa
 
 Hi [IT Team],
 
-We need a quick App Registration in Azure for our wall dashboard application. Could you create one with these specs?
+We are setting up a wall-mounted TV display in the office that shows our Microsoft 365 calendar and SharePoint files. It is a read-only display that runs entirely on our local network — no data is sent to any external AI services or third parties. It only communicates with Microsoft's own Graph API to read our internal calendar and file data, the same way Outlook does.
+
+Could you create an Azure App Registration with these specs?
 
 **App Details:**
 - **App name:** VRSI Wall Dashboard
-- **Supported account types:** Single tenant
+- **Supported account types:** Single tenant (this organization only)
 - **Public client app:** Yes (no client secret, no redirect URI needed)
-- **Authentication flow:** Device Code Flow
-- **Allow public client flows:** Yes (critical setting)
+- **Authentication flow:** Device Code Flow (user signs in once on their phone)
+- **Allow public client flows:** Yes (critical — must be enabled)
 
-**API Permissions (Delegated):**
-- Calendars.Read
-- User.Read
-- offline_access
-- Files.Read.All
-- Sites.Read.All
+**API Permissions needed (Delegated, read-only):**
+- Calendars.Read — display calendar events on the wall screen
+- User.Read — show the signed-in user's name
+- offline_access — keep the display signed in without daily prompts
+- Files.Read.All — show recent SharePoint files on the display
+- Sites.Read.All — browse SharePoint document libraries
 
-Once created, please send us:
+**What this app does NOT do:**
+- Does not send any data to AI services, OpenAI, Anthropic, or any third party
+- Does not write, create, edit, or delete any calendar events or files
+- Does not transmit data outside the company network
+- Does not store credentials — it uses Microsoft's own secure token system
+
+Once created, please send me:
 - Directory (Tenant) ID
 - Application (Client) ID
 
-Thanks!
+Happy to answer any questions. Thanks!
 
 ---
 

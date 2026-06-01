@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nexus Kiosk — Mockup</title>
+<title>VRSI Dashboard — Mockup</title>
+<link rel="icon" type="image/png" href="client/public/logos/vrsi-icon-black.png">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -30,6 +31,7 @@
   }
 
   .clock-block {}
+  .vrsi-logo { height: 28px; width: auto; opacity: 0.85; margin-bottom: 6px; display: block; }
   .clock {
     font-size: clamp(3rem, 6vw, 5.5rem);
     font-weight: 200;
@@ -317,6 +319,7 @@
 <!-- TOP BAR -->
 <div class="topbar">
   <div class="clock-block">
+    <img src="client/public/logos/vrsi-white-letters.png" alt="VRSI" class="vrsi-logo">
     <div class="clock" id="clock">11<span class="colon">:</span>42 <span style="font-size:0.55em;color:#475569">AM</span></div>
     <div class="date" id="date-display">Monday, June 1, 2026</div>
   </div>
@@ -591,7 +594,10 @@
 
 <!-- STATUS BAR -->
 <div class="statusbar">
-  <div><span class="status-dot"></span>Connected · Last updated just now</div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <img src="client/public/logos/vrsi-icon-white.png" alt="VRSI" style="height:14px;width:auto;opacity:0.35;">
+    <span><span class="status-dot"></span>Connected · Last updated just now</span>
+  </div>
   <div class="shortcuts">
     <span class="shortcut"><kbd>Ctrl+S</kbd> Settings</span>
     <span class="shortcut"><kbd>Ctrl+F</kbd> Files</span>

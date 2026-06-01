@@ -1,0 +1,5 @@
+{"level":"info","message":"Nexus Kiosk server starting up...","timestamp":"2026-06-01 13:09:19"}
+{"level":"info","message":"Initializing tokens from stored data","timestamp":"2026-06-01 13:09:19"}
+{"level":"warn","message":"No stored tokens found — authentication required","timestamp":"2026-06-01 13:09:19"}
+{"level":"warn","message":"Could not initialize tokens from storage — authentication required via /api/auth/start","timestamp":"2026-06-01 13:09:19"}
+{"authenticated":false,"env":"production","level":"info","message":"Server listening on port 3002","port":3002,"timestamp":"2026-06-01 13:09:19"}

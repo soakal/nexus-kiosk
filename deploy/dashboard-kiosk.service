@@ -1,0 +1,15 @@
+[Unit]
+Description=Nexus Kiosk Display Service
+After=network.target dashboard-backend.service graphical-session.target
+
+[Service]
+Type=simple
+User=KIOSK_USER
+Environment="DISPLAY=:0"
+ExecStartPre=/bin/sleep 10
+ExecStart=INSTALL_DIR/deploy/start-kiosk.sh
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=graphical-session.target

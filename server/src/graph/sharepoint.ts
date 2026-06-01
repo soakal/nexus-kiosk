@@ -1,4 +1,5 @@
 import { getGraphClient } from './graphClient.js';
+import { mockFiles } from './mockData.js';
 import { logger } from '../utils/logger.js';
 
 export interface GraphDriveItem {
@@ -28,6 +29,17 @@ export interface GraphDrive {
 }
 
 export async function listRecentFiles(count = 20): Promise<GraphDriveItem[]> {
+  if (process.env.DISABLE_AZURE === 'true') {
+    logger.info('Test mode: returning mock recent files');
+    return mockFiles.slice(0, count).map((file) => ({
+      id: file.id,
+      name: file.name,
+      webUrl: file.webUrl,
+      lastModifiedDateTime: file.lastModifiedDateTime,
+      size: Math.floor(Math.random() * 5000000),
+    }));
+  }
+
   logger.debug('Fetching recent files from Graph API', { count });
   const client = getGraphClient();
 
@@ -41,6 +53,24 @@ export async function listRecentFiles(count = 20): Promise<GraphDriveItem[]> {
 }
 
 export async function listSites(): Promise<GraphSite[]> {
+  if (process.env.DISABLE_AZURE === 'true') {
+    logger.info('Test mode: returning mock sites');
+    return [
+      {
+        id: 'site-1',
+        name: 'projects',
+        displayName: 'Projects',
+        webUrl: 'https://sharepoint.example.com/sites/projects',
+      },
+      {
+        id: 'site-2',
+        name: 'team',
+        displayName: 'Team',
+        webUrl: 'https://sharepoint.example.com/sites/team',
+      },
+    ];
+  }
+
   logger.debug('Fetching SharePoint sites from Graph API');
   const client = getGraphClient();
 
@@ -55,6 +85,18 @@ export async function listSites(): Promise<GraphSite[]> {
 }
 
 export async function listDrives(siteId: string): Promise<GraphDrive[]> {
+  if (process.env.DISABLE_AZURE === 'true') {
+    logger.info('Test mode: returning mock drives');
+    return [
+      {
+        id: 'drive-1',
+        name: 'Documents',
+        driveType: 'documentLibrary',
+        webUrl: 'https://sharepoint.example.com/sites/projects/documents',
+      },
+    ];
+  }
+
   logger.debug('Fetching drives for site', { siteId });
   const client = getGraphClient();
 
@@ -68,6 +110,17 @@ export async function listDrives(siteId: string): Promise<GraphDrive[]> {
 }
 
 export async function listFiles(driveId: string): Promise<GraphDriveItem[]> {
+  if (process.env.DISABLE_AZURE === 'true') {
+    logger.info('Test mode: returning mock files for drive');
+    return mockFiles.map((file) => ({
+      id: file.id,
+      name: file.name,
+      webUrl: file.webUrl,
+      lastModifiedDateTime: file.lastModifiedDateTime,
+      size: Math.floor(Math.random() * 5000000),
+    }));
+  }
+
   logger.debug('Fetching files for drive', { driveId });
   const client = getGraphClient();
 

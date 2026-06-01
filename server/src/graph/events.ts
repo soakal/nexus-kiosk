@@ -1,4 +1,5 @@
 import { getGraphClient } from './graphClient.js';
+import { getMockEvents } from './mockData.js';
 import { logger } from '../utils/logger.js';
 
 export interface GraphEventDateTime {
@@ -24,6 +25,16 @@ export async function listEvents(
   start: string,
   end: string
 ): Promise<GraphEvent[]> {
+  if (process.env.DISABLE_AZURE === 'true') {
+    logger.info('Test mode: returning mock events');
+    const mockEvents = getMockEvents();
+    return mockEvents.map((event, index) => ({
+      ...event,
+      isAllDay: false,
+      calendarId: calendarIds[index % calendarIds.length],
+    }));
+  }
+
   logger.debug('Fetching events from Graph API', {
     calendarCount: calendarIds.length,
     start,

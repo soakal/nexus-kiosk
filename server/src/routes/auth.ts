@@ -10,6 +10,21 @@ authRouter.post(
   '/start',
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      if (process.env.DISABLE_AZURE === 'true') {
+        logger.warn('Test mode: skipping device code flow');
+        res.json({
+          codeInfo: {
+            deviceCode: 'test-device-code',
+            userCode: 'TEST-1234',
+            verificationUri: 'https://microsoft.com/devicelogin',
+            expiresIn: 900,
+            interval: 5,
+            message: 'Test mode: no real authentication required',
+          },
+        });
+        return;
+      }
+
       if (isPolling()) {
         res.status(409).json({ error: 'Device code flow already in progress' });
         return;
@@ -30,8 +45,13 @@ authRouter.get(
     try {
       const authenticated = isAuthenticated();
       const polling = isPolling();
-
       let userEmail: string | null = null;
+
+      if (process.env.DISABLE_AZURE === 'true') {
+        logger.debug('Test mode: returning mock auth status');
+        res.json({ authenticated: true, polling: false, userEmail: 'test@example.com' });
+        return;
+      }
 
       if (authenticated) {
         try {

@@ -3,13 +3,14 @@ import { loadTokens, saveTokens, TokenData } from './tokenStore.js';
 import { logger } from '../utils/logger.js';
 
 let currentAccessToken: string | null = null;
+const isTestMode = process.env.DISABLE_AZURE === 'true';
 
 export function getCurrentAccessToken(): string | null {
   return currentAccessToken;
 }
 
 export function isAuthenticated(): boolean {
-  return currentAccessToken !== null;
+  return currentAccessToken !== null || isTestMode;
 }
 
 export function setUnauthenticated(): void {
@@ -69,6 +70,12 @@ async function refreshViaEndpoint(rt: string): Promise<RefreshResponse> {
 export async function initializeTokens(): Promise<boolean> {
   logger.info('Initializing tokens from stored data');
 
+  if (isTestMode) {
+    logger.warn('DISABLE_AZURE is enabled — using test mode (no real authentication)');
+    currentAccessToken = 'test-token-mock';
+    return true;
+  }
+
   const stored: TokenData | null = loadTokens();
   if (!stored) {
     logger.warn('No stored tokens found — authentication required');
@@ -94,6 +101,11 @@ export async function initializeTokens(): Promise<boolean> {
 }
 
 export function startRefreshCron(): void {
+  if (isTestMode) {
+    logger.info('Test mode enabled — skipping token refresh cron');
+    return;
+  }
+
   // Every 55 minutes
   cron.schedule('*/55 * * * *', async () => {
     logger.info('Cron: refreshing access token');

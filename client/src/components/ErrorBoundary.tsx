@@ -52,11 +52,12 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#0f1117] text-slate-200 p-8">
         <div className="max-w-md w-full rounded-2xl bg-white/5 border border-white/10 p-8 text-center space-y-6">
+          <img src="/logos/vrsi-icon-white.png" alt="VRSI" className="h-8 w-auto mx-auto mb-4" />
           <div className="text-5xl">⚠️</div>
           <div>
             <h1 className="text-2xl font-semibold text-white mb-2">Something went wrong</h1>
             <p className="text-sm text-slate-400">
-              Nexus Kiosk encountered an unexpected error.
+              VRSI Dashboard encountered an unexpected error.
             </p>
           </div>
 

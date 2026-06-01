@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+server/data/tokens.json
+server/data/config.json
+server/logs/
+*.log
+client/dist/
+.DS_Store
+Thumbs.db

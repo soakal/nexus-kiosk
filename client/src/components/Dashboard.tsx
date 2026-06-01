@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { CalendarEvent, AppConfig, SharePointFile } from "../types/index";
 import Clock from "./Clock";
 import NextEventBadge from "./NextEventBadge";
@@ -138,9 +138,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Status bar */}
       <footer className="flex flex-shrink-0 items-center justify-between border-t border-white/5 bg-black/20 px-5 py-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-          Nexus Kiosk
-        </span>
+        <img src="/logos/vrsi-icon-white.png" alt="VRSI" className="h-4 w-auto opacity-60" />
         <div className="flex items-center gap-4 text-[11px] text-slate-600">
           <button
             type="button"

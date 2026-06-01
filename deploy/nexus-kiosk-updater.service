@@ -1,0 +1,11 @@
+[Unit]
+Description=VRSI Dashboard Weekly Auto-Update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=INSTALL_DIR=INSTALL_DIR
+ExecStart=/bin/bash INSTALL_DIR/deploy/auto-update.sh
+StandardOutput=append:/var/log/nexus-kiosk/update.log
+StandardError=append:/var/log/nexus-kiosk/update.log

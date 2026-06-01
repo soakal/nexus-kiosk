@@ -8,9 +8,7 @@ const LoadingScreen: React.FC = () => {
           <div className="absolute inset-0 animate-spin rounded-full border-4 border-white/10 border-t-blue-500" />
         </div>
         <div className="text-center">
-          <h1 className="text-3xl font-thin tracking-[0.2em] text-white uppercase">
-            Nexus Kiosk
-          </h1>
+          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="h-12 w-auto mx-auto" />
           <p className="mt-2 text-sm text-slate-500 tracking-widest">Loading…</p>
         </div>
       </div>

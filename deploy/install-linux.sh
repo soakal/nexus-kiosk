@@ -12,11 +12,20 @@ echo ""
 
 # Step 1: Prompt for installation parameters
 echo -e "${YELLOW}Step 1: Configuration${NC}"
-read -p "Enter installation directory (default: /home/pi/nexus-kiosk): " INSTALL_DIR
-INSTALL_DIR=${INSTALL_DIR:-/home/pi/nexus-kiosk}
 
-read -p "Enter kiosk user (default: $USER): " KIOSK_USER
-KIOSK_USER=${KIOSK_USER:-$USER}
+# BLOCK A — Non-interactive mode
+# If NON_INTERACTIVE=1 is set, use env vars and skip all prompts.
+if [ "${NON_INTERACTIVE:-}" = "1" ]; then
+    INSTALL_DIR="${INSTALL_DIR:-/home/pi/nexus-kiosk}"
+    KIOSK_USER="${KIOSK_USER:-$USER}"
+    echo "Non-interactive mode: using provided environment variables"
+else
+    read -p "Enter installation directory (default: /home/pi/nexus-kiosk): " INSTALL_DIR
+    INSTALL_DIR=${INSTALL_DIR:-/home/pi/nexus-kiosk}
+
+    read -p "Enter kiosk user (default: $USER): " KIOSK_USER
+    KIOSK_USER=${KIOSK_USER:-$USER}
+fi
 
 echo "Installation directory: $INSTALL_DIR"
 echo "Kiosk user: $KIOSK_USER"
@@ -144,6 +153,36 @@ sudo systemctl daemon-reload
 sudo systemctl enable dashboard-backend.service
 sudo systemctl enable dashboard-kiosk.service
 echo "Services enabled and will start on boot"
+echo ""
+
+# BLOCK B — Auto-updater installation
+echo -e "${YELLOW}Step 8b: Installing auto-updater${NC}"
+
+# Install updater service (replace INSTALL_DIR placeholder)
+UPDATER_SERVICE=$(mktemp)
+sed "s|INSTALL_DIR|$INSTALL_DIR|g" "$INSTALL_DIR/deploy/nexus-kiosk-updater.service" > "$UPDATER_SERVICE"
+sudo cp "$UPDATER_SERVICE" /etc/systemd/system/nexus-kiosk-updater.service
+rm "$UPDATER_SERVICE"
+
+# Install updater timer (no placeholders needed)
+sudo cp "$INSTALL_DIR/deploy/nexus-kiosk-updater.timer" /etc/systemd/system/nexus-kiosk-updater.timer
+
+# Make the auto-update script executable
+chmod +x "$INSTALL_DIR/deploy/auto-update.sh"
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now nexus-kiosk-updater.timer
+
+echo "Auto-update scheduled: every Sunday at 3:30 AM"
+echo "  - /etc/systemd/system/nexus-kiosk-updater.service"
+echo "  - /etc/systemd/system/nexus-kiosk-updater.timer"
+echo ""
+
+# BLOCK C — One-command startup symlink
+echo -e "${YELLOW}Step 8c: Creating nexus-kiosk command${NC}"
+chmod +x "$INSTALL_DIR/start.sh"
+sudo ln -sf "$INSTALL_DIR/start.sh" /usr/local/bin/nexus-kiosk
+echo "Type nexus-kiosk from anywhere to start the dashboard"
 echo ""
 
 # Step 9: Configure lightdm autologin (if available)

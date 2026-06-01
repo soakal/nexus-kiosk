@@ -100,9 +100,7 @@ const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
       <div className="w-full max-w-md space-y-8 text-center">
         {/* Title */}
         <div>
-          <h1 className="text-4xl font-thin tracking-[0.2em] text-white uppercase mb-2">
-            Nexus Kiosk
-          </h1>
+          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="h-14 w-auto mx-auto mb-3" />
           <p className="text-slate-500 text-sm tracking-wide">Microsoft 365 Sign-In Required</p>
         </div>
 

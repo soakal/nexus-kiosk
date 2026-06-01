@@ -3,10 +3,15 @@
 @tailwind utilities;
 
 body {
-  cursor: none;
   user-select: none;
-  overflow: hidden;
   background-color: #0f1117;
+}
+
+@media (min-width: 768px) {
+  body {
+    overflow: hidden;
+    cursor: none;
+  }
 }
 
 /* React Big Calendar dark mode overrides */

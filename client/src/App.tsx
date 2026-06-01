@@ -149,6 +149,7 @@ function AppInner() {
                 isOnline={isOnline}
                 dataUpdatedAt={dataUpdatedAt}
                 displayMode={displayMode}
+                onSetDisplayMode={setDisplayMode}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenFiles={() => setIsFilesOpen(true)}
               />

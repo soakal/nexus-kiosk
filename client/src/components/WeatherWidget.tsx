@@ -5,6 +5,7 @@ interface WeatherWidgetProps {
   lon: number | null;
   tempUnit: 'F' | 'C';
   onSunsetIso?: (iso: string) => void;
+  compact?: boolean;
 }
 
 interface WeatherData {
@@ -43,7 +44,7 @@ function getDayLabel(dateStr: string, index: number): string {
   return d.toLocaleDateString('en-US', { weekday: 'short' });
 }
 
-const WeatherWidget: React.FC<WeatherWidgetProps> = ({ lat, lon, tempUnit, onSunsetIso }) => {
+const WeatherWidget: React.FC<WeatherWidgetProps> = ({ lat, lon, tempUnit, onSunsetIso, compact = false }) => {
   const [data, setData] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -95,6 +96,7 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ lat, lon, tempUnit, onSun
   }, [fetchWeather]);
 
   if (lat === null || lon === null) {
+    if (compact) return null;
     return (
       <div className="flex items-center gap-1.5 text-sm text-slate-400">
         <span>📍</span>
@@ -120,6 +122,17 @@ const WeatherWidget: React.FC<WeatherWidgetProps> = ({ lat, lon, tempUnit, onSun
   if (!data) return null;
 
   const current = wmoToDisplay(data.currentCode);
+
+  // Compact single-line variant for mobile header
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1.5 text-sm text-slate-300">
+        <span className="text-base leading-none">{current.emoji}</span>
+        <span className="font-medium text-white">{data.currentTemp}°{tempUnit}</span>
+        <span className="text-slate-400 text-xs">· {current.label}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-4">

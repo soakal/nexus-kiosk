@@ -42,10 +42,10 @@ const Clock: React.FC<ClockProps> = ({ timeFormat }) => {
 
   return (
     <div className="flex flex-col leading-none">
-      <span className="text-7xl font-thin tracking-tight text-white">
+      <span className="text-4xl font-light md:text-7xl md:font-thin tracking-tight text-white">
         {parts.time}
       </span>
-      <span className="mt-1 text-sm font-normal text-slate-400 tracking-wide">
+      <span className="mt-1 text-xs md:text-sm font-normal text-slate-400 tracking-wide">
         {parts.date}
       </span>
     </div>

@@ -35,31 +35,31 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label
 );
 
 const SelectField: React.FC<{ label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }> = ({ label, value, onChange, options }) => (
-  <div className="flex items-center justify-between gap-4 py-1.5">
+  <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
     <span className="text-sm text-slate-300 flex-shrink-0">{label}</span>
     <select value={value} onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1 focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors min-w-0">
+      className="rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1.5 focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors min-w-0">
       {options.map((o) => (<option key={o.value} value={o.value} className="bg-[#1e2536]">{o.label}</option>))}
     </select>
   </div>
 );
 
 const NumberField: React.FC<{ label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; suffix?: string }> = ({ label, value, onChange, min, max, step = 1, suffix }) => (
-  <div className="flex items-center justify-between gap-4 py-1.5">
+  <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
     <span className="text-sm text-slate-300 flex-shrink-0">{label}</span>
     <div className="flex items-center gap-1.5">
       <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} min={min} max={max} step={step}
-        className="w-20 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1 text-right focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors" />
+        className="w-20 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1.5 text-right focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors" />
       {suffix && <span className="text-xs text-slate-500">{suffix}</span>}
     </div>
   </div>
 );
 
 const TextField: React.FC<{ label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }> = ({ label, value, onChange, placeholder, type = "text" }) => (
-  <div className="flex items-center justify-between gap-4 py-1.5">
+  <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
     <span className="text-sm text-slate-300 flex-shrink-0">{label}</span>
     <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      className="w-36 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1 text-right focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors placeholder-slate-600" />
+      className="w-36 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1.5 text-right focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors placeholder-slate-600" />
   </div>
 );
 
@@ -114,7 +114,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config, 
       />
       <div
         ref={panelRef}
-        className={`fixed top-0 right-0 bottom-0 w-96 bg-[#161b27] border-l border-white/10 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed top-0 right-0 bottom-0 w-full md:w-96 bg-[#161b27] border-l border-white/10 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`}
         style={{ zIndex: 50 }}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 flex-shrink-0">

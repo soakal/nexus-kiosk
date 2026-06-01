@@ -15,6 +15,8 @@ interface DashboardProps {
   config: AppConfig;
   isOnline: boolean;
   dataUpdatedAt: number;
+  displayMode: 'day' | 'week' | 'month';
+  onSetDisplayMode: (mode: 'day' | 'week' | 'month') => void;
   onOpenSettings: () => void;
   onOpenFiles: () => void;
 }
@@ -28,6 +30,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   config,
   isOnline,
   dataUpdatedAt,
+  displayMode,
+  onSetDisplayMode,
   onOpenSettings,
   onOpenFiles,
 }) => {
@@ -73,37 +77,59 @@ const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {/* Top bar */}
-      <header className="flex flex-shrink-0 items-center gap-6 px-6 py-3 border-b border-white/5 bg-black/20">
+      <header className="flex flex-shrink-0 items-center gap-3 px-4 py-3 md:gap-6 md:px-6 md:py-3 border-b border-white/5 bg-black/20">
         {/* Clock - left */}
         <div className="flex-shrink-0">
           <Clock timeFormat={config.timeFormat} />
         </div>
 
-        {/* Center spacer + NextEventBadge */}
-        <div className="flex flex-1 items-center justify-center">
+        {/* Center spacer + NextEventBadge — desktop only */}
+        <div className="hidden md:flex flex-1 items-center justify-center">
           {config.showNextEvent && <NextEventBadge events={events} />}
         </div>
 
-        {/* Weather - right */}
+        {/* Weather — desktop: full widget; mobile: compact inline */}
         {config.showWeather && (
-          <div className="flex-shrink-0">
-            <WeatherWidget
-              lat={config.weatherLat}
-              lon={config.weatherLon}
-              tempUnit={config.tempUnit}
-              onSunsetIso={handleSunsetIso}
-            />
-          </div>
+          <>
+            {/* Desktop full weather */}
+            <div className="hidden md:flex flex-shrink-0">
+              <WeatherWidget
+                lat={config.weatherLat}
+                lon={config.weatherLon}
+                tempUnit={config.tempUnit}
+                onSunsetIso={handleSunsetIso}
+              />
+            </div>
+            {/* Mobile compact weather — pushes to right */}
+            <div className="flex md:hidden flex-1 justify-end">
+              <WeatherWidget
+                lat={config.weatherLat}
+                lon={config.weatherLon}
+                tempUnit={config.tempUnit}
+                onSunsetIso={handleSunsetIso}
+                compact
+              />
+            </div>
+          </>
         )}
+        {/* If no weather, push nothing but still need spacer on mobile */}
+        {!config.showWeather && <div className="flex-1 md:hidden" />}
       </header>
 
-      {/* Main content row */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Next event badge — mobile only, below header */}
+      {config.showNextEvent && (
+        <div className="md:hidden px-4 py-2 border-b border-white/5 bg-black/10">
+          <NextEventBadge events={events} />
+        </div>
+      )}
+
+      {/* Main content row — desktop layout (calendar + right panel) */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
         {/* Calendar - grows to fill */}
         <main className="flex-1 overflow-hidden p-3">
           <CalendarView
             events={events}
-            displayMode={config.displayMode}
+            displayMode={displayMode}
             showWeekends={config.showWeekends}
             startHour={config.startHour}
             endHour={config.endHour}
@@ -136,8 +162,30 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
-      {/* Status bar */}
-      <footer className="flex flex-shrink-0 items-center justify-between border-t border-white/5 bg-black/20 px-5 py-1.5">
+      {/* Mobile agenda section — fills remaining space, scrollable */}
+      <div className="md:hidden flex-1 overflow-y-auto px-4 py-3">
+        {config.showAgendaRail && (
+          <div className="mb-4">
+            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+              Agenda
+            </h2>
+            <AgendaRail events={events} className="min-h-0" />
+          </div>
+        )}
+
+        {config.showRecentFiles && (
+          <div className="border-t border-white/5 pt-4">
+            <RecentFilesWidget
+              files={recentFiles.slice(0, config.recentFilesCount)}
+              isLoading={recentFilesLoading}
+              fileOpenMode={config.fileOpenMode}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Status bar — desktop only (keyboard hints) */}
+      <footer className="hidden md:flex flex-shrink-0 items-center justify-between border-t border-white/5 bg-black/20 px-5 py-1.5">
         <img src="/logos/vrsi-icon-white.png" alt="VRSI" className="h-4 w-auto opacity-60" />
         <div className="flex items-center gap-4 text-[11px] text-slate-600">
           <button
@@ -159,6 +207,44 @@ const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
       </footer>
+
+      {/* Mobile bottom nav bar */}
+      <div className="md:hidden flex flex-shrink-0 items-center justify-between px-4 py-2 bg-[#13171f] border-t border-slate-800">
+        <div className="flex gap-1">
+          {(['day', 'week', 'month'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onSetDisplayMode(mode)}
+              className={`px-3 py-1.5 rounded text-xs font-medium uppercase tracking-wide transition-colors ${
+                displayMode === mode
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="p-2 text-slate-500 hover:text-slate-300 text-lg leading-none"
+            aria-label="Settings"
+          >
+            ⚙
+          </button>
+          <button
+            type="button"
+            onClick={onOpenFiles}
+            className="p-2 text-slate-500 hover:text-slate-300 text-lg leading-none"
+            aria-label="Files"
+          >
+            📁
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

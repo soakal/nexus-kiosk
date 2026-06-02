@@ -88,12 +88,12 @@ export function JobCard({ job, activeUser, config }: Props) {
     deleteJobNote.mutate({ jobNumber: job.jobNumber, noteId, actor: activeUser })
   }
 
-  const borderLeftColor = config.statusColors[pendingStatus]
+  const statusColor = config.statusColors[pendingStatus]
 
   return (
     <div
-      className="rounded-xl border border-slate-700/50 p-4 mb-3 border-l-4 bg-slate-800/40"
-      style={{ borderLeftColor }}
+      className="rounded-xl border border-slate-700/50 p-4 mb-3 border-l-4"
+      style={{ borderLeftColor: statusColor, backgroundColor: `${statusColor}18` }}
     >
       {/* Header row */}
       <div className="flex justify-between items-start">
@@ -127,7 +127,14 @@ export function JobCard({ job, activeUser, config }: Props) {
           disabled={!activeUser}
           onStatusChange={setPendingStatus}
         />
-        <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full text-slate-400 bg-slate-700/40 border border-slate-600/50">
+        <span
+          className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
+          style={{
+            color: statusColor,
+            backgroundColor: `${statusColor}22`,
+            border: `1px solid ${statusColor}55`,
+          }}
+        >
           {statusLabel(pendingStatus)}
         </span>
       </div>

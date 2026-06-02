@@ -7,11 +7,11 @@ export function worstStatus(jobs: BoardJob[]): JobStatus {
     return 'none'
   }
 
-  return filtered.reduce((worst, current) => {
+  return filtered.reduce<JobStatus>((worst, current) => {
     const worstIndex = STATUS_ORDER.indexOf(worst)
     const currentIndex = STATUS_ORDER.indexOf(current.status)
     return currentIndex < worstIndex ? current.status : worst
-  }, 'none')
+  }, 'shipped')
 }
 
 export function tabColor(jobs: BoardJob[], config: BoardConfig): string {

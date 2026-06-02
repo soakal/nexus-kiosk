@@ -13,8 +13,6 @@ export default function StatusCheckboxes({ jobNumber, status, disabled, onStatus
   const currentIndex = STATUS_ORDER.indexOf(status)
 
   const handleCheckboxClick = (boxStatus: JobStatus) => {
-    const boxIndex = STATUS_ORDER.indexOf(boxStatus)
-
     if (boxStatus === status) {
       // Clicking the current status: step back one
       if (currentIndex === 0) {

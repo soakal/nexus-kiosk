@@ -228,6 +228,7 @@ type JobStateEntry = {
   shipDateOverride: string | null
   notes: JobNote[]
   updatedAt: string
+  updatedBy?: string
 }
 
 type BoardStateFile = {
@@ -255,7 +256,7 @@ export function getJobState(jobNumber: string): JobStateEntry {
   )
 }
 
-export function setJobStatus(jobNumber: string, status: JobStatus): void {
+export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor): void {
   const state = getBoardStateFile()
   const existing = state[jobNumber] ?? {
     status: 'none' as JobStatus,
@@ -267,11 +268,12 @@ export function setJobStatus(jobNumber: string, status: JobStatus): void {
     ...existing,
     status,
     updatedAt: new Date().toISOString(),
+    updatedBy: actor?.name,
   }
   writeBoardState(state)
 }
 
-export function setShipDateOverride(jobNumber: string, date: string | null): void {
+export function setShipDateOverride(jobNumber: string, date: string | null, actor?: Actor): void {
   const state = getBoardStateFile()
   const existing = state[jobNumber] ?? {
     status: 'none' as JobStatus,
@@ -283,6 +285,7 @@ export function setShipDateOverride(jobNumber: string, date: string | null): voi
     ...existing,
     shipDateOverride: date,
     updatedAt: new Date().toISOString(),
+    updatedBy: actor?.name,
   }
   writeBoardState(state)
 }
@@ -313,10 +316,15 @@ export function addNote(jobNumber: string, text: string, actor: Actor): JobNote 
   return note
 }
 
-export function deleteNote(jobNumber: string, noteId: string): void {
+export function deleteNote(jobNumber: string, noteId: string, actor: Actor): { ok: boolean; error?: string } {
   const state = getBoardStateFile()
   const existing = state[jobNumber]
-  if (!existing) return
+  if (!existing) return { ok: true }
+
+  const note = existing.notes.find((n) => n.id === noteId)
+  if (note && note.authorId !== actor.id) {
+    return { ok: false, error: 'Only the author can delete this note' }
+  }
 
   state[jobNumber] = {
     ...existing,
@@ -324,6 +332,7 @@ export function deleteNote(jobNumber: string, noteId: string): void {
     updatedAt: new Date().toISOString(),
   }
   writeBoardState(state)
+  return { ok: true }
 }
 
 // ---------------------------------------------------------------------------

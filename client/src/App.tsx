@@ -67,7 +67,7 @@ function AppInner() {
     if (authLoading) return;
     setIsAuthenticated(isAuthenticated);
     if (isAuthenticated) {
-      navigate('/');
+      if (!location.pathname.startsWith('/board')) navigate('/');
     } else if (!location.pathname.startsWith('/board')) {
       navigate('/setup');
     }

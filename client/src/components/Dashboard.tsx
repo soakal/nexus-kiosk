@@ -226,8 +226,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             Ctrl+F Files
           </button>
           <span>|</span>
-          <Link to="/board" className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors text-xs">
-            📋 <span>Board</span>
+          <Link to="/board" className="flex items-center gap-1.5 bg-slate-700/60 hover:bg-slate-600 text-slate-200 px-3 py-1 rounded transition-colors text-xs font-medium">
+            <span>Board</span>
           </Link>
         </div>
       </footer>
@@ -267,7 +267,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           >
             📁
           </button>
-          <Link to="/board" className="p-2 text-slate-500 hover:text-slate-300 text-lg">📋</Link>
+          <Link to="/board" className="p-2 text-slate-500 hover:text-slate-300 text-xs font-medium">Board</Link>
         </div>
       </div>
     </div>

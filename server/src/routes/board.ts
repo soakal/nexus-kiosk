@@ -105,14 +105,14 @@ boardRouter.get('/users', async (_req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 boardRouter.patch('/jobs/:jobNumber/status', async (req: Request, res: Response) => {
   try {
-    const { status } = req.body as { status: string; actor?: Actor }
+    const { status, actor } = req.body as { status: string; actor?: Actor }
 
     if (!STATUS_ORDER.includes(status as never)) {
       res.status(400).json({ error: 'Invalid status' })
       return
     }
 
-    setJobStatus(req.params.jobNumber, status as (typeof STATUS_ORDER)[number])
+    setJobStatus(req.params.jobNumber, status as (typeof STATUS_ORDER)[number], actor)
 
     const jobs = getMergedJobs()
     const job = jobs.find((j) => j.jobNumber === req.params.jobNumber)
@@ -127,9 +127,9 @@ boardRouter.patch('/jobs/:jobNumber/status', async (req: Request, res: Response)
 // ---------------------------------------------------------------------------
 boardRouter.patch('/jobs/:jobNumber/ship-date', async (req: Request, res: Response) => {
   try {
-    const { shipDateOverride } = req.body as { shipDateOverride?: string | null; actor?: Actor }
+    const { shipDateOverride, actor } = req.body as { shipDateOverride?: string | null; actor?: Actor }
 
-    setShipDateOverride(req.params.jobNumber, shipDateOverride ?? null)
+    setShipDateOverride(req.params.jobNumber, shipDateOverride ?? null, actor)
 
     const jobs = getMergedJobs()
     res.json(jobs.find((j) => j.jobNumber === req.params.jobNumber))
@@ -162,7 +162,16 @@ boardRouter.post('/jobs/:jobNumber/notes', async (req: Request, res: Response) =
 // ---------------------------------------------------------------------------
 boardRouter.delete('/jobs/:jobNumber/notes/:noteId', async (req: Request, res: Response) => {
   try {
-    deleteNote(req.params.jobNumber, req.params.noteId)
+    const { actor } = req.body as { actor?: Actor }
+    if (!actor) {
+      res.status(400).json({ error: 'actor required' })
+      return
+    }
+    const result = deleteNote(req.params.jobNumber, req.params.noteId, actor)
+    if (!result.ok) {
+      res.status(403).json({ error: result.error })
+      return
+    }
     res.json({ ok: true })
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })

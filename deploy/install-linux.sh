@@ -343,6 +343,11 @@ else
 fi
 echo ""
 
+# ---- Restart backend -------------------------------------------------------
+step "Restarting backend service..."
+as_root systemctl restart dashboard-backend.service && echo "Backend restarted" || warn "Backend restart failed — run: sudo systemctl restart dashboard-backend"
+echo ""
+
 # ---- Done -----------------------------------------------------------------
 log "=== Installation Complete ==="
 echo ""

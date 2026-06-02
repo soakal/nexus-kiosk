@@ -61,7 +61,14 @@ export function JobCard({ job, activeUser, config }: Props) {
       {/* Header row */}
       <div className="flex justify-between items-start">
         <div>
-          <span className="text-slate-100 text-lg font-bold">#{job.jobNumber}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-100 text-lg font-bold">#{job.jobNumber}</span>
+            {job.isNew && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                New
+              </span>
+            )}
+          </div>
           <div className="text-slate-400 text-sm mt-0.5">
             {job.customer} &middot; PM: {job.pm}
           </div>

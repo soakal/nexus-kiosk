@@ -24,6 +24,7 @@ export interface BoardJob extends Job {
   notes: JobNote[]
   effectiveShipDate: string | null
   shipDateOverridden: boolean
+  isNew: boolean
 }
 
 export interface BoardUser {

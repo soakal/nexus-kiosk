@@ -151,6 +151,7 @@ export interface JobsFile {
   jobs: Job[]
   importedAt: string
   sourceFile: string
+  newJobNumbers: string[]
 }
 
 export function loadJobsFile(): JobsFile | null {
@@ -158,10 +159,17 @@ export function loadJobsFile(): JobsFile | null {
 }
 
 export function saveJobsFile(jobs: Job[], sourceFile: string): void {
+  const existing = loadJobsFile()
+  const existingNumbers = new Set(existing?.jobs.map((j) => j.jobNumber) ?? [])
+  const newJobNumbers = jobs
+    .map((j) => j.jobNumber)
+    .filter((n) => !existingNumbers.has(n))
+
   const data: JobsFile = {
     jobs,
     importedAt: new Date().toISOString(),
     sourceFile,
+    newJobNumbers,
   }
   writeJsonFile(JOBS_FILE, data)
 }
@@ -371,6 +379,7 @@ export function getMergedJobs(): BoardJob[] {
   if (!jobsFile) return []
 
   const state = getBoardStateFile()
+  const newSet = new Set(jobsFile.newJobNumbers ?? [])
 
   return jobsFile.jobs.map((job): BoardJob => {
     const jobState = state[job.jobNumber] ?? {
@@ -389,6 +398,7 @@ export function getMergedJobs(): BoardJob[] {
       notes: jobState.notes,
       effectiveShipDate,
       shipDateOverridden,
+      isNew: newSet.has(job.jobNumber),
     }
   })
 }

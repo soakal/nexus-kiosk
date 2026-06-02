@@ -175,17 +175,13 @@ export default function UsersView() {
               <span className="text-slate-400 text-sm w-32 shrink-0">
                 {statusLabel(status)}
               </span>
-              <div
-                className="w-6 h-6 rounded border border-slate-700 shrink-0"
-                style={{ backgroundColor: localColors[status] }}
-              />
               <input
                 type="color"
                 value={localColors[status]}
                 onChange={(e) =>
                   setLocalColors((prev) => ({ ...prev, [status]: e.target.value }))
                 }
-                className="w-8 h-6 cursor-pointer rounded border-0 bg-transparent p-0"
+                className="w-8 h-8 cursor-pointer rounded border border-slate-700 bg-transparent p-0.5"
                 title={`Color for ${statusLabel(status)}`}
               />
             </div>

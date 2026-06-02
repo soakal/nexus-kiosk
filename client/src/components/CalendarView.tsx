@@ -124,7 +124,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div
-      className={`nexus-calendar-wrapper overflow-hidden rounded-xl bg-white/5 ${className}`}
+      className={`nexus-calendar-wrapper overflow-hidden rounded-xl bg-white/5 ${!showWeekends ? 'nexus-hide-weekends' : ''} ${className}`}
       style={{ height: '100%' }}
     >
       <style>{`
@@ -216,11 +216,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .nexus-calendar-wrapper .rbc-header + .rbc-header {
           border-color: rgba(255,255,255,0.08);
         }
-        /* Hide Saturday and Sunday columns when showWeekends=false */
-        .nexus-calendar-wrapper .rbc-header.rbc-hidden-weekend,
+        /* Hide Saturday and Sunday columns when showWeekends=false.
+           dayPropGetter injects rbc-hidden-weekend into rbc-day-bg and
+           rbc-day-slot cells, but react-big-calendar does NOT propagate
+           dayPropGetter className to the rbc-header row.  We scope the
+           nth-child header rule to the nexus-hide-weekends wrapper class so
+           it is only active when showWeekends is false.  Column order when
+           the week starts on Monday: Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6
+           Sun=7. */
         .nexus-calendar-wrapper .rbc-day-bg.rbc-hidden-weekend,
-        .nexus-calendar-wrapper .rbc-day-slot.rbc-hidden-weekend {
-          display: none;
+        .nexus-calendar-wrapper .rbc-day-slot.rbc-hidden-weekend,
+        .nexus-calendar-wrapper .rbc-time-column.rbc-hidden-weekend {
+          display: none !important;
+        }
+        /* Header nth-child — scoped to .nexus-hide-weekends set on the
+           wrapper when showWeekends=false */
+        .nexus-hide-weekends .rbc-header:nth-child(6),
+        .nexus-hide-weekends .rbc-header:nth-child(7) {
+          display: none !important;
         }
       `}</style>
       <Calendar

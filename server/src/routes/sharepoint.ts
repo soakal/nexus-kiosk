@@ -78,6 +78,22 @@ sharepointRouter.get(
   }
 );
 
+// RESTful nested route: GET /sites/:siteId/drives
+// (matches the URL pattern the FileBrowserPanel client uses)
+sharepointRouter.get(
+  '/sites/:siteId/drives',
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { siteId } = req.params;
+      logger.debug('GET /api/sharepoint/sites/:siteId/drives', { siteId });
+      const drives = await listDrives(siteId);
+      res.json(drives);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 sharepointRouter.get(
   '/files',
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -90,6 +106,33 @@ sharepointRouter.get(
       logger.debug('GET /api/sharepoint/files', { driveId });
       const files = await listFiles(driveId);
       res.json(files);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// RESTful nested route: GET /sites/:siteId/drives/:driveId/files
+// (matches the URL pattern the FileBrowserPanel client uses)
+sharepointRouter.get(
+  '/sites/:siteId/drives/:driveId/files',
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { driveId } = req.params;
+      logger.debug('GET /api/sharepoint/sites/:siteId/drives/:driveId/files', { driveId });
+      const files = await listFiles(driveId);
+      // Normalize to the flat SharePointFile shape the client expects
+      const normalized = files.map((f) => ({
+        id: f.id,
+        name: f.name,
+        webUrl: f.webUrl ?? '',
+        lastModifiedDateTime: f.lastModifiedDateTime ?? new Date().toISOString(),
+        size: f.size ?? 0,
+        mimeType: f.file?.mimeType ?? '',
+        siteName: '',
+        driveId,
+      }));
+      res.json(normalized);
     } catch (err) {
       next(err);
     }

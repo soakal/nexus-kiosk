@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -20,13 +20,10 @@ export function JobListView({ tab }: Props) {
   // Reset filters whenever the active user changes
   useEffect(() => { setShowAll(false); setSearch('') }, [activeUser?.id])
 
-  // Scroll the list container to the top whenever the search term changes, so
-  // the first matching result is visible without the user having to scroll up.
-  // useLayoutEffect runs after the DOM is updated (filtered/shorter list) but
-  // before paint, so the scroll reset is applied against the new content height.
-  useLayoutEffect(() => {
-    const scrollParent = listTopRef.current?.closest('main') as HTMLElement | null
-    if (scrollParent) scrollParent.scrollTo({ top: 0 })
+  // Scroll to top whenever search changes — target by id for reliability
+  useEffect(() => {
+    const el = document.getElementById('board-scroll')
+    if (el) el.scrollTop = 0
   }, [search])
 
   if (isLoading) {

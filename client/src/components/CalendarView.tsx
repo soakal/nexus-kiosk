@@ -269,7 +269,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         events={rbcEvents}
         view={viewMap[displayMode]}
         onView={() => {}}
-        defaultView={viewMap[displayMode]}
         eventPropGetter={eventPropGetter}
         dayPropGetter={dayPropGetter}
         min={minTime}

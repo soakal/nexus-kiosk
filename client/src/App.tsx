@@ -56,7 +56,8 @@ function AppInner() {
   const { events, dataUpdatedAt } = useEvents(
     config.calendarIds,
     isAuthenticated,
-    config.refreshInterval
+    config.refreshInterval,
+    displayMode
   );
 
   const { data: recentFiles, isLoading: recentFilesLoading } = useRecentFiles(

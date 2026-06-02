@@ -102,12 +102,10 @@ eventsRouter.get(
           if (!job.effectiveShipDate) continue;
           if (job.status === 'shipped') continue;
           if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
-          const pm = job.pm ?? '';
-          const pmDisplay = pm.includes('@') ? pm.split('@')[0] : pm;
           const customer = job.customer ?? '';
           normalized.push({
             id: `board-ship-${job.jobNumber}`,
-            subject: `#${job.jobNumber} — ${customer} · ${pmDisplay}`,
+            subject: `#${job.jobNumber} · ${customer}`,
             startDateTime: `${job.effectiveShipDate}T00:00:00`,
             endDateTime: `${job.effectiveShipDate}T23:59:59`,
             isAllDay: true,

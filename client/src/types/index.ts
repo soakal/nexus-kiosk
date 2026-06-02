@@ -97,7 +97,7 @@ export const CALENDAR_COLORS: Record<string, string> = {
 
 export const DEFAULT_CONFIG: AppConfig = {
   calendarIds: [],
-  displayMode: 'week',
+  displayMode: 'month',
   refreshInterval: 300,
   theme: 'dark',
   timezone: 'America/New_York',

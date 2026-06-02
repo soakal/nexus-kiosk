@@ -42,7 +42,7 @@ export const useAppStore = create<AppState>((set) => ({
   isAuthenticated: false,
   isSettingsOpen: false,
   isFilesOpen: false,
-  displayMode: 'week',
+  displayMode: 'month',
   theme: 'dark',
   config: null,
   activeUser: getInitialActiveUser(),

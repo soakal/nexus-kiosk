@@ -36,6 +36,23 @@ export default function UsersView() {
 
   const [savedFlash, setSavedFlash] = useState(false)
 
+  // ── extra users state ─────────────────────────────────────────────────────
+  const [newUserName, setNewUserName] = useState('')
+
+  const handleAddUser = () => {
+    const name = newUserName.trim()
+    if (!name) return
+    const current = config.extraUsers ?? []
+    if (current.some((u) => u.toLowerCase() === name.toLowerCase())) return
+    updateConfig.mutate({ extraUsers: [...current, name] })
+    setNewUserName('')
+  }
+
+  const handleRemoveUser = (name: string) => {
+    const current = config.extraUsers ?? []
+    updateConfig.mutate({ extraUsers: current.filter((u) => u !== name) })
+  }
+
   const handleSaveColors = () => {
     updateConfig.mutate(
       { statusColors: localColors },
@@ -91,7 +108,48 @@ export default function UsersView() {
         )}
       </div>
 
-      {/* ── Section 2: Tab Status Colors ──────────────────────────────────────── */}
+      {/* ── Section 2: Extra Users ───────────────────────────────────────────── */}
+      <div className="py-4 px-1">
+        <h3 className="text-slate-300 font-semibold text-sm mb-1">Extra Users</h3>
+        <p className="text-slate-500 text-xs mb-3">Add people not in the imported spreadsheet.</p>
+
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={newUserName}
+            onChange={(e) => setNewUserName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddUser() }}
+            placeholder="Full name"
+            className="flex-1 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 px-3 py-1.5 placeholder-slate-600 focus:outline-none focus:border-blue-500/50"
+          />
+          <button
+            onClick={handleAddUser}
+            disabled={!newUserName.trim() || updateConfig.isPending}
+            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Add
+          </button>
+        </div>
+
+        {(config.extraUsers ?? []).length > 0 && (
+          <ul className="space-y-1">
+            {(config.extraUsers ?? []).map((name) => (
+              <li key={name} className="flex items-center justify-between bg-slate-800 rounded-lg px-3 py-2">
+                <span className="text-sm text-slate-200">{name}</span>
+                <button
+                  onClick={() => handleRemoveUser(name)}
+                  className="text-slate-500 hover:text-red-400 transition-colors text-lg leading-none"
+                  aria-label={`Remove ${name}`}
+                >
+                  &times;
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* ── Section 3: Tab Status Colors ──────────────────────────────────────── */}
       <div className="py-4 px-1">
         <h3 className="text-slate-300 font-semibold text-sm mb-3">Tab Status Colors</h3>
 

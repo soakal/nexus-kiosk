@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useBoardUsers, useBoardConfig, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobStatus, BoardUser, DEFAULT_BOARD_CONFIG } from '../../types/board'
@@ -20,6 +21,8 @@ export default function UsersView() {
   const { users } = useBoardUsers()
   const { config } = useBoardConfig()
   const updateConfig = useUpdateBoardConfig()
+  const location = useLocation()
+  const selectPrompt = !!(location.state as { selectPrompt?: boolean })?.selectPrompt
 
   const activeUser = useAppStore((s) => s.activeUser)
   const setActiveUser = useAppStore((s) => s.setActiveUser)
@@ -67,6 +70,13 @@ export default function UsersView() {
 
   return (
     <div className="divide-y divide-slate-800">
+
+      {/* ── Prompt banner ────────────────────────────────────────────────────── */}
+      {selectPrompt && !activeUser && (
+        <div className="mb-4 rounded-xl bg-blue-600/20 border border-blue-500/30 px-4 py-3 text-sm text-blue-300">
+          Select your name below to see your jobs.
+        </div>
+      )}
 
       {/* ── Section 1: Who are you? ─────────────────────────────────────────── */}
       <div className="py-4 px-1">

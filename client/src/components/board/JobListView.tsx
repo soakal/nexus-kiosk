@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
@@ -13,7 +13,15 @@ export function JobListView({ tab }: Props) {
   const { jobs, isLoading } = useBoardJobs()
   const { config } = useBoardConfig()
   const { activeUser } = useAppStore()
+  const navigate = useNavigate()
   const [showAll, setShowAll] = useState(false)
+
+  // Redirect to Users tab if no user selected
+  useEffect(() => {
+    if (!isLoading && !activeUser) {
+      navigate('/board/users', { state: { selectPrompt: true } })
+    }
+  }, [activeUser, isLoading, navigate])
 
   // Reset to "my jobs" whenever the active user changes
   useEffect(() => { setShowAll(false) }, [activeUser?.id])

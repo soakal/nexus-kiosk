@@ -41,6 +41,7 @@ interface CalendarViewProps {
   startHour: number;
   endHour: number;
   className?: string;
+  onSelectEvent?: (event: CalendarEvent) => void;
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -58,6 +59,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   startHour,
   endHour,
   className = '',
+  onSelectEvent,
 }) => {
   const rbcEvents = useMemo<RBCCalendarEvent[]>(
     () =>
@@ -205,6 +207,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           color: #60a5fa;
           background: transparent;
           font-size: 11px;
+          cursor: pointer;
+        }
+        .nexus-calendar-wrapper .rbc-overlay {
+          background: #1e2536;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 8px;
+          padding: 8px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+          z-index: 100;
+          min-width: 180px;
+        }
+        .nexus-calendar-wrapper .rbc-overlay-header {
+          color: #94a3b8;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          padding-bottom: 6px;
+          margin-bottom: 6px;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .nexus-calendar-wrapper .rbc-overlay .rbc-event {
+          margin-bottom: 3px;
+          cursor: pointer;
         }
         .nexus-calendar-wrapper .rbc-toolbar {
           display: none;
@@ -247,6 +272,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         max={maxTime}
         style={{ height: '100%' }}
         popup
+        onSelectEvent={(ev: RBCCalendarEvent) => onSelectEvent?.(ev.resource)}
         formats={{
           timeGutterFormat: (date: Date) =>
             format(date, 'h a').toLowerCase(),

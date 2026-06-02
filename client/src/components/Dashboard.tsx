@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { CalendarEvent, AppConfig, SharePointFile } from "../types/index";
 import Clock from "./Clock";
 import NextEventBadge from "./NextEventBadge";
@@ -37,6 +37,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onOpenSettings,
   onOpenFiles,
 }) => {
+  const navigate = useNavigate();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [sunsetIso, setSunsetIso] = useState<string | null>(null);
   const [isDimmed, setIsDimmed] = useState(false);
@@ -65,6 +66,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [onOpenSettings, onOpenFiles]);
 
   const handleSunsetIso = useCallback((iso: string) => setSunsetIso(iso), []);
+
+  const handleSelectEvent = useCallback((ev: import('../types/index').CalendarEvent) => {
+    if (ev.calendarId === 'board-jobs') {
+      const jobNumber = ev.id.replace('board-ship-', '');
+      navigate(`/board?job=${encodeURIComponent(jobNumber)}`);
+    }
+  }, [navigate]);
 
   const minutesSinceUpdate = dataUpdatedAt > 0 ? Math.floor((nowMs - dataUpdatedAt) / 60_000) : null;
   const showBanner = !isOnline || (dataUpdatedAt > 0 && nowMs - dataUpdatedAt > STALE_THRESHOLD_MS);
@@ -137,6 +145,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             startHour={config.startHour}
             endHour={config.endHour}
             className="h-full"
+            onSelectEvent={handleSelectEvent}
           />
         </main>
 

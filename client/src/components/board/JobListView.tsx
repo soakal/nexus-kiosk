@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -19,12 +19,24 @@ export function JobListView({ tab }: Props) {
   const updateConfig = useUpdateBoardConfig()
   const { activeUser } = useAppStore()
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [showAll, setShowAll] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [search, setSearch] = useState('')
   const [spareGearOpen, setSpareGearOpen] = useState(false)
   const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Pre-populate search from ?job= param set by calendar event click
+  useEffect(() => {
+    const jobParam = searchParams.get('job')
+    if (jobParam) {
+      setInputValue(jobParam)
+      setSearch(jobParam)
+      setSearchParams({}, { replace: true })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Refetch fresh data whenever the active user changes
   // (local state resets are handled by key={activeUser?.id} on the route)

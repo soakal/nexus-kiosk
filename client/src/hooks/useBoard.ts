@@ -110,6 +110,9 @@ export function useAddJobNote() {
     mutationFn: ({ jobNumber, text, actor }: { jobNumber: string; text: string; actor: Actor }) =>
       addJobNote(jobNumber, text, actor),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
+    onError: () => {
+      console.error('Failed to save note — server may be unavailable')
+    },
   });
 }
 
@@ -129,5 +132,8 @@ export function useDeleteJobNote() {
     mutationFn: ({ jobNumber, noteId, actor }: { jobNumber: string; noteId: string; actor: Actor }) =>
       deleteJobNote(jobNumber, noteId, actor),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
+    onError: () => {
+      console.error('Failed to save note — server may be unavailable')
+    },
   });
 }

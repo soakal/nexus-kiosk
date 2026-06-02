@@ -46,7 +46,7 @@ export async function getBoardUsers(): Promise<BoardUser[]> {
   return response.json();
 }
 
-export async function importJobsJson(jobs: Job[]): Promise<{ imported: number; shippedApplied: number; warnings: string[] }> {
+export async function importJobsJson(jobs: Job[]): Promise<{ imported: number; shippedApplied: number; skipped: number; warnings: string[]; rowErrors: string[] }> {
   const response = await fetch('/api/board/import', {
     method: 'POST',
     headers: {
@@ -60,7 +60,7 @@ export async function importJobsJson(jobs: Job[]): Promise<{ imported: number; s
   return response.json();
 }
 
-export async function importJobsFile(file: File): Promise<{ imported: number; shippedApplied: number; warnings: string[] }> {
+export async function importJobsFile(file: File): Promise<{ imported: number; shippedApplied: number; skipped: number; warnings: string[]; rowErrors: string[] }> {
   const formData = new FormData();
   formData.append('file', file);
 

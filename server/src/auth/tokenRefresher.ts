@@ -176,8 +176,50 @@ export async function initializeTokens(): Promise<boolean> {
       );
     } else {
       logger.error('Failed to refresh stored tokens (transient)', { error: err });
+      // On transient failure (not permanent invalid_grant), retry sooner than
+      // the 55-min cron so a brief boot-time network blip doesn't leave the
+      // kiosk dataless for nearly an hour.
+      if (!needsReauth) {
+        logger.info('Token init failed transiently — scheduling quick retry in 60s');
+        setTimeout(() => {
+          void quickRetryRefresh();
+        }, 60_000);
+      }
     }
     return false;
+  }
+}
+
+/**
+ * One-shot token refresh used by the post-boot quick-retry path. Mirrors the
+ * cron's refresh-and-persist logic so a transient startup failure self-heals
+ * without waiting for the 55-minute cron tick.
+ */
+async function quickRetryRefresh(): Promise<void> {
+  try {
+    const stored = loadTokens();
+    if (!stored) {
+      logger.warn('Quick retry: no stored tokens, cannot refresh');
+      return;
+    }
+    const refreshed = await refreshWithRetry(stored.refreshToken);
+    currentAccessToken = refreshed.accessToken;
+    needsReauth = false;
+    saveTokens({
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      expiresOn: refreshed.expiresOn,
+    });
+    logger.info('Quick retry: access token refreshed successfully');
+  } catch (e: unknown) {
+    if (e instanceof RefreshError && e.permanent) {
+      needsReauth = true;
+      logger.error('Quick retry: refresh token permanently invalid — re-authentication required', {
+        error: e.message,
+      });
+    } else {
+      logger.error('Quick retry failed', { error: (e as Error).message });
+    }
   }
 }
 

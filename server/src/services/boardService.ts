@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import * as XLSX from 'xlsx'
+import { randomUUID } from 'crypto'
 import type {
   Job,
   JobNote,
@@ -25,12 +26,10 @@ const BOARD_STATE_FILE = path.join(DATA_DIR, 'board-state.json')
 const BOARD_CONFIG_FILE = path.join(DATA_DIR, 'board-config.json')
 
 // ---------------------------------------------------------------------------
-// Note ID counter (deterministic per process, no nondeterministic functions)
+// Note ID generation
 // ---------------------------------------------------------------------------
-let noteCounter = 0
-
 function generateNoteId(): string {
-  return 'n_' + process.hrtime.bigint().toString() + '_' + (++noteCounter)
+  return randomUUID()
 }
 
 // ---------------------------------------------------------------------------
@@ -51,11 +50,17 @@ function readJsonFile<T>(filePath: string): T | null {
 
 function writeJsonFile(filePath: string, data: unknown): void {
   ensureDataDir()
-  // Atomic write: write to a temp file then rename onto the target. rename is
-  // atomic on the same filesystem, so a crash/power-loss mid-write can never
-  // leave a truncated/invalid JSON file.
   const tmpPath = filePath + '.tmp'
-  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8')
+  const fd = fs.openSync(tmpPath, 'w')
+  try {
+    fs.writeSync(fd, JSON.stringify(data, null, 2))
+    fs.fsyncSync(fd)
+    fs.closeSync(fd)
+  } catch (err) {
+    try { fs.closeSync(fd) } catch { /* ignore */ }
+    try { fs.unlinkSync(tmpPath) } catch { /* ignore */ }
+    throw err
+  }
   fs.renameSync(tmpPath, filePath)
 }
 
@@ -91,21 +96,23 @@ function formatLocalDate(d: Date): string {
 }
 
 function parseDateValue(value: unknown): string | null {
-  if (value == null || value === '') return null
-  if (value instanceof Date) return formatLocalDate(value)
+  if (value == null) return null
   if (typeof value === 'string') {
     const trimmed = value.trim()
-    if (trimmed === '') return null
-    // If it already looks like yyyy-mm-dd use it as-is
+    if (!trimmed) return null
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
-    // Try parsing as a generic date string
+    // Require a 4-digit year — reject 'TBD', 'N/A', 'Wk of 6/15', 'DD-Mon', ranges, etc.
+    if (!/\b\d{4}\b/.test(trimmed)) return null
+    if (/\bTBD\b|\bN\/A\b|\bASAP\b|–|—|\bto\b/i.test(trimmed)) return null
     const d = new Date(trimmed)
-    if (!isNaN(d.getTime())) return formatLocalDate(d)
-    return trimmed
+    if (isNaN(d.getTime())) return null
+    return formatLocalDate(d)
   }
   if (typeof value === 'number') {
-    // Excel serial date
-    return XLSX.SSF.format('yyyy-mm-dd', value)
+    if (value < 1 || value > 109574) return null
+    const formatted = XLSX.SSF.format('yyyy-mm-dd', value)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(formatted)) return null
+    return formatted
   }
   return null
 }
@@ -156,11 +163,28 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       if (colMap.materialsManager === null) colMap.materialsManager = i
     } else if (raw.includes('pab') && (raw.includes('complete') || raw.includes('finish'))) {
       if (colMap.pabsComplete === null) colMap.pabsComplete = i
-    } else if (raw.includes('ship') && raw.includes('pm')) {
+    } else if (
+      // Match the real "SHIP TO PM" date column. Require the contiguous phrase
+      // "ship to pm" — a loose `ship && pm` test wrongly claimed the earlier
+      // "PURCH Materials Review ... ship to PM" column (index 8), so the real
+      // ship-to-PM date (index 12) was never read. Also exclude the purchasing /
+      // materials-review column explicitly. Because the loop is left-to-right
+      // and first-match-wins, a stray column must never pre-empt this one.
+      raw.includes('ship to pm') &&
+      !raw.includes('purch') &&
+      !raw.includes('review')
+    ) {
       if (colMap.shipToPm === null) colMap.shipToPm = i
     } else if (
-      (raw.includes('ship') && raw.includes('customer')) ||
-      raw === 'ship from vrsi'
+      // "Ship from VRSI" is the ship-to-customer date. Use includes() (not ===)
+      // so trailing punctuation/notes ("Ship from VRSI:", "Ship from VRSI (date)")
+      // still match. "ship to cust(omer)" also accepted; guard against the
+      // "SHIP TO PM: ... before ship to cust" header (already excluded above by
+      // failing the ship-to-pm branch, but it lacks 'customer' and 'from vrsi'
+      // so it will not match here either).
+      raw.includes('ship from vrsi') ||
+      raw.includes('ship to customer') ||
+      (raw.includes('ship') && raw.includes('customer') && !raw.includes('pm'))
     ) {
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i
     } else if (raw.includes('status')) {
@@ -234,7 +258,11 @@ export function saveJobsFile(jobs: Job[], sourceFile: string): void {
   // Prune orphaned board-state: notes/status/ship-date overrides for jobs no
   // longer present in the spreadsheet would otherwise accumulate forever and,
   // worse, be silently inherited if a job number is later reused.
-  pruneOrphanedBoardState(currentNumbers)
+  // Run the prune through the exclusive mutation queue so it serializes
+  // against concurrent note/status writes — import must not race with addNote.
+  runExclusive(() => {
+    pruneOrphanedBoardState(currentNumbers)
+  }).catch(() => undefined)
 }
 
 function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
@@ -242,6 +270,8 @@ function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
   let changed = false
   for (const jobNumber of Object.keys(state)) {
     if (!validJobNumbers.has(jobNumber)) {
+      // Preserve entries that have user notes — notes are the only irreplaceable data
+      if (state[jobNumber].notes && state[jobNumber].notes.length > 0) continue
       delete state[jobNumber]
       changed = true
     }
@@ -255,7 +285,7 @@ function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
 export function parseXlsm(
   buffer: Buffer,
   originalName: string,
-): { jobs: Job[]; warnings: string[]; importedStatuses: Record<string, JobStatus> } {
+): { jobs: Job[]; warnings: string[]; rowErrors: string[]; skipped: number; importedStatuses: Record<string, JobStatus> } {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
 
   // Prefer "Active Projects" sheet; fall back to first sheet
@@ -266,7 +296,7 @@ export function parseXlsm(
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][]
 
   if (rows.length < 2) {
-    return { jobs: [], warnings: ['Spreadsheet is empty'], importedStatuses: {} }
+    return { jobs: [], warnings: ['Spreadsheet is empty'], rowErrors: [], skipped: 0, importedStatuses: {} }
   }
 
   // Active Projects has a numeric index row first — real headers are in row index 1
@@ -280,13 +310,20 @@ export function parseXlsm(
 
   const jobs: Job[] = []
   const importedStatuses: Record<string, JobStatus> = {}
+  const rowErrors: string[] = []
+  let skipped = 0
+  const seenJobNumbers = new Set<string>()
 
   for (let r = dataStartIndex; r < rows.length; r++) {
     const row = rows[r] as unknown[]
 
     const jobNumberRaw =
       colMap.jobNumber !== null ? row[colMap.jobNumber] : undefined
-    if (jobNumberRaw == null || String(jobNumberRaw).trim() === '') continue
+    if (jobNumberRaw == null || String(jobNumberRaw).trim() === '') {
+      const rowIsEmpty = row.every((c) => c == null || String(c ?? '').trim() === '')
+      if (!rowIsEmpty) { rowErrors.push(`Row ${r + 1}: missing job number — skipped`); skipped++ }
+      continue
+    }
 
     const getString = (col: number | null): string => {
       if (col === null) return ''
@@ -300,6 +337,11 @@ export function parseXlsm(
     }
 
     const jobNumber = String(jobNumberRaw).trim()
+
+    if (seenJobNumbers.has(jobNumber)) {
+      rowErrors.push(`Row ${r + 1}: duplicate job number ${jobNumber}`)
+    }
+    seenJobNumbers.add(jobNumber)
 
     const job: Job = {
       jobNumber,
@@ -326,7 +368,7 @@ export function parseXlsm(
     jobs.push(job)
   }
 
-  return { jobs, warnings, importedStatuses }
+  return { jobs, warnings, rowErrors, skipped, importedStatuses }
 }
 
 // ---------------------------------------------------------------------------

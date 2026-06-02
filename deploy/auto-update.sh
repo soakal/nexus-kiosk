@@ -3,6 +3,8 @@ set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/home/pi/nexus-kiosk}"
 
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
 # Fail gracefully (skip this unattended run) if there is no checkout to update.
 [ -d "$INSTALL_DIR/.git" ] || { echo "[$(date '+%F %T')] No git checkout at $INSTALL_DIR — auto-update skipped" >&2; exit 0; }
 cd "$INSTALL_DIR" || { echo "[$(date '+%F %T')] cannot cd to $INSTALL_DIR — auto-update skipped" >&2; exit 1; }
@@ -27,6 +29,12 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] auto-update start (branch: $BRANCH)"
 
 BEFORE=$(git rev-parse HEAD)
+
+# Back up board data before updating
+if [ -f "$INSTALL_DIR/deploy/backup.sh" ]; then
+    log "Creating pre-update backup..."
+    bash "$INSTALL_DIR/deploy/backup.sh" || log "WARNING: pre-update backup failed (continuing)"
+fi
 
 # Back up runtime state before any destructive git operation. board/config JSON
 # is normally untracked (survives reset --hard), but this is a safety net in case
@@ -79,7 +87,13 @@ if [ ! -f "$INSTALL_DIR/client/dist/index.html" ]; then
     npm run build
 fi
 
-sudo fuser -k 3001/tcp 2>/dev/null || true
+# Try graceful stop first, fall back to force-kill
+sudo systemctl stop dashboard-backend.service 2>/dev/null || true
+sleep 2
+if fuser 3001/tcp >/dev/null 2>&1; then
+  fuser -k 3001/tcp 2>/dev/null || true
+  sleep 1
+fi
 sudo systemctl restart dashboard-backend.service
 sudo systemctl restart dashboard-kiosk.service 2>/dev/null || true
 
@@ -110,6 +124,23 @@ verify_backend() {
     return 1
 }
 verify_backend
+
+log "Waiting for backend to be fully ready..."
+READY=false
+for i in $(seq 1 12); do
+  if curl -sf http://localhost:3001/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('ready') or d.get('authenticated') or d.get('testMode') or d.get('needsReauth') else 1)" 2>/dev/null; then
+    READY=true
+    break
+  fi
+  log "  Readiness check $i/12 — not ready yet, waiting 5s..."
+  sleep 5
+done
+if [ "$READY" = "false" ]; then
+  log "WARNING: Backend did not become ready within 60s — check logs:"
+  journalctl -u dashboard-backend.service -n 30 --no-pager 2>/dev/null || true
+else
+  log "Backend is ready"
+fi
 
 # Verify the SPA is being served (not a 404 JSON response for /board)
 sleep 2

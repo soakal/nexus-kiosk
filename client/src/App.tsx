@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStatus } from './hooks/useAuth';
 import { useConfig } from './hooks/useConfig';
@@ -22,6 +22,10 @@ function AppInner() {
 
   // Auth — always polling
   const { isAuthenticated, isLoading: authLoading } = useAuthStatus(true);
+
+  // Tracks consecutive unauthenticated polls so a brief server restart (which
+  // returns 401/unauthenticated for a few seconds) does not bounce us to /setup.
+  const unauthCountRef = React.useRef(0);
 
   // Server config
   const { config } = useConfig();
@@ -65,13 +69,23 @@ function AppInner() {
     isAuthenticated && config.showRecentFiles
   );
 
-  // Sync auth state to store and navigate accordingly
+  // Sync auth state to store and navigate accordingly.
+  // Debounce the redirect to /setup: a brief server restart returns
+  // unauthenticated for a few seconds, and we don't want to kick a signed-in
+  // kiosk back to the device-code screen for a transient blip. Only redirect
+  // after 4+ consecutive unauthenticated polls (~12s at the 3s poll interval).
   useEffect(() => {
     if (authLoading) return;
     setIsAuthenticated(isAuthenticated);
+
     if (isAuthenticated) {
+      unauthCountRef.current = 0;
       if (!location.pathname.startsWith('/board')) navigate('/');
-    } else if (!location.pathname.startsWith('/board')) {
+      return;
+    }
+
+    unauthCountRef.current += 1;
+    if (unauthCountRef.current >= 4 && !location.pathname.startsWith('/board')) {
       navigate('/setup');
     }
   }, [isAuthenticated, authLoading, navigate, setIsAuthenticated, location.pathname]);

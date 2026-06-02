@@ -14,6 +14,7 @@ import {
 } from '../services/boardService.js'
 import { STATUS_ORDER } from '../types/board.js'
 import type { Job, Actor } from '../types/board.js'
+import { logger } from '../utils/logger.js'
 
 export const boardRouter = Router()
 
@@ -118,6 +119,8 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
     let jobs: Job[]
     let sourceFile: string
     let warnings: string[] = []
+    let rowErrors: string[] = []
+    let skipped = 0
 
     let shippedApplied = 0
 
@@ -125,18 +128,23 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       const result = parseXlsm(req.file.buffer, req.file.originalname)
       jobs = result.jobs
       warnings = result.warnings
+      rowErrors = result.rowErrors
+      skipped = result.skipped
       sourceFile = req.file.originalname
       for (const [jobNumber, status] of Object.entries(result.importedStatuses)) {
         await setJobStatus(jobNumber, status)
         shippedApplied++
       }
     } else if (Array.isArray(req.body.jobs)) {
-      const { jobs: validated, errors, importedStatuses } = validateJobsArray(req.body.jobs)
-      if (errors.length > 0) {
-        res.status(400).json({ error: 'Invalid jobs', rows: errors })
+      const { jobs: validated, errors: jsonErrors, importedStatuses } = validateJobsArray(req.body.jobs)
+      jobs = validated
+      rowErrors = jsonErrors
+      skipped = jsonErrors.length
+      // Only hard-reject if there are NO valid rows at all
+      if (jobs.length === 0 && jsonErrors.length > 0) {
+        res.status(400).json({ error: 'No valid jobs in import', rowErrors: jsonErrors })
         return
       }
-      jobs = validated
       sourceFile = 'manual-import'
       for (const [jobNumber, status] of Object.entries(importedStatuses)) {
         await setJobStatus(jobNumber, status)
@@ -148,8 +156,13 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
     }
 
     saveJobsFile(jobs, sourceFile)
-    res.json({ imported: jobs.length, shippedApplied, warnings })
+    logger.info('Board import complete', {
+      sourceFile, imported: jobs.length, shippedApplied, skipped,
+      warnings: warnings.length, rowErrors: rowErrors.length,
+    })
+    res.json({ imported: jobs.length, shippedApplied, skipped, warnings, rowErrors })
   } catch (err: unknown) {
+    logger.error('Board import failed', { error: (err as Error).message })
     res.status(500).json({ error: (err as Error).message })
   }
 })

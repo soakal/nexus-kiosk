@@ -16,7 +16,13 @@ export default function ImportView() {
     importJobs.mutate(selectedFile)
   }
 
-  const importResult = importJobs.data as { imported: number; shippedApplied: number; warnings: string[] } | undefined
+  const importResult = importJobs.data as {
+    imported: number
+    shippedApplied: number
+    skipped: number
+    warnings: string[]
+    rowErrors: string[]
+  } | undefined
   const importError = importJobs.error as Error | null
 
   return (
@@ -52,25 +58,44 @@ export default function ImportView() {
           {importJobs.isPending ? 'Importing…' : 'Import Jobs'}
         </button>
 
-        {importJobs.isSuccess && importResult && (
-          <div className="pt-1">
-            <p className="text-green-400 text-sm font-medium">
-              ✓ Imported {importResult.imported} job{importResult.imported !== 1 ? 's' : ''}
-              {importResult.shippedApplied > 0 && (
-                <span className="ml-2 text-slate-400">
-                  ({importResult.shippedApplied} archived as shipped)
-                </span>
+        {importJobs.isSuccess && importResult && (() => {
+          const hadProblems = importResult.skipped > 0 || importResult.rowErrors.length > 0
+          return (
+            <div className="pt-1 space-y-2">
+              <p className={hadProblems ? 'text-amber-400 text-sm font-medium' : 'text-green-400 text-sm font-medium'}>
+                {hadProblems ? '⚠ ' : '✓ '}
+                Imported {importResult.imported} job{importResult.imported !== 1 ? 's' : ''}
+                {importResult.skipped > 0 && (
+                  <span className="ml-2 text-amber-400">
+                    ({importResult.skipped} row{importResult.skipped !== 1 ? 's' : ''} skipped)
+                  </span>
+                )}
+                {importResult.shippedApplied > 0 && (
+                  <span className="ml-2 text-slate-400">
+                    ({importResult.shippedApplied} archived as shipped)
+                  </span>
+                )}
+              </p>
+              {importResult.rowErrors.length > 0 && (
+                <ul className="list-disc list-inside text-amber-400 text-xs space-y-0.5 max-h-40 overflow-auto">
+                  {importResult.rowErrors.slice(0, 50).map((e, i) => (
+                    <li key={e + i}>{e}</li>
+                  ))}
+                  {importResult.rowErrors.length > 50 && (
+                    <li className="text-slate-500">...and {importResult.rowErrors.length - 50} more</li>
+                  )}
+                </ul>
               )}
-            </p>
-            {importResult.warnings.length > 0 && (
-              <ul className="mt-2 list-disc list-inside text-amber-400 text-xs space-y-0.5">
-                {importResult.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+              {importResult.warnings.length > 0 && (
+                <ul className="list-disc list-inside text-amber-400 text-xs space-y-0.5">
+                  {importResult.warnings.map((w, i) => (
+                    <li key={w + i}>{w}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )
+        })()}
 
         {importError && (
           <p className="text-red-400 text-sm">{importError.message}</p>

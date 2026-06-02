@@ -116,21 +116,58 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 
 ---
 
+## Recently fixed (from the 2026-06 multi-agent review)
+
+**Server / Import**
+- Ship-date import: `detectColumns` was assigning wrong column for `shipToPm` (multiline header at index 8 matched `ship && pm` before the real col 12); fixed with contiguous `ship to pm` phrase + purch/review exclusion
+- `parseDateValue` was returning raw garbage strings (TBD, N/A, Wk of 6/15) as real dates; now returns `null` for anything without a 4-digit year or that is unparseable
+- `shipToCustomer` detection was brittle exact-match (`raw === 'ship from vrsi'`); widened to `includes`
+- Import now tracks and returns `rowErrors` (missing job#, duplicate job#) + `skipped` count; import route logs via winston
+- JSON import path changed from all-or-nothing 400 to partial import (only rejects when zero valid rows)
+- `pruneOrphanedBoardState` now preserves entries with notes (silent permanent note-delete on re-import is fixed)
+- `saveJobsFile` prune call routed through `runExclusive` so import serializes against concurrent note/status writes
+- `writeJsonFile` now `fsync`s before rename and has try/finally cleanup of orphaned `.tmp` files
+- Note IDs now use `crypto.randomUUID()` (was hrtime-based, could collide across restarts)
+
+**Server / Auth / Deploy**
+- `server/src/index.ts`: captures `http.Server`, adds `gracefulShutdown()` on SIGTERM/SIGINT with 10s force-exit fallback
+- `/health` endpoint extended with `ready` field (true when token init is resolved one way or another, or test mode)
+- `tokenRefresher.ts`: on transient init failure (not invalid_grant), schedules a 60s quick-retry instead of waiting 55 min for cron
+- `auto-update.sh`: prefer `systemctl stop` before `fuser -k`; HTTP readiness poll after restart (12×5s, waits for `ready:true` on /health); pre-update backup call
+- Feature A: `deploy/backup.sh` + `deploy/restore.sh` + `nexus-kiosk-backup.{service,timer}` added; backup runs every 6h, keeps 28 copies; wired into `install-linux.sh`
+
+**Client**
+- Import UI: amber partial-success banner with scrollable row-error list (was always green regardless of skipped rows)
+- App.tsx: `/setup` redirect debounced — requires 4+ consecutive unauthenticated polls (~12s) before redirecting, preventing kiosk lock-out during server restart
+- Calendar month-view: date-number dimming now gated on `!showWeekends` and uses `weekends-hidden` wrapper class instead of unconditional positional `nth-child` selectors
+- AgendaRail redesigned: left time-column layout, colored accent bar, calendarName chip, "Now" badge for in-progress events, dated section headers
+- Note mutation errors now surface via `console.error` in `onError` handlers
+
+---
+
 ## TODO backlog (remaining from the audit)
 
 ### High priority / correctness
+- [ ] **Verify 401 self-recovery on VM after auto-update**: The client debounce (4 polls before /setup redirect) and server readiness poll in auto-update.sh are in place. Confirm on 10.10.11.24 after a real `NEXUS_UPDATE=1` run that the kiosk self-recovers without manual reboot. Adjust poll count if token refresh takes >15s.
+- [ ] **Wire backup timer into NEXUS_UPDATE path**: `install-linux.sh` full-install enables `nexus-kiosk-backup.timer`. The `NEXUS_UPDATE=1` short-circuit does NOT re-install it. An existing VM running update-only won't get the 6-hourly timer until a full reinstall. Either add timer install to the update path or document that one full reinstall is required.
+- [ ] **Scheduled XLSM auto-import**: No server-side cron pulls the spreadsheet from the file server. Add a `node-cron` job (mirror `tokenRefresher` pattern) that reads from a configured file-server path and calls `parseXlsm` + `saveJobsFile` on schedule. `isNew` badge infra already built.
 - [ ] **Upgrade `xlsx`** away from registry `0.18.5` — unpatched prototype-pollution (CVE-2023-30533) + ReDoS, and it parses **untrusted uploads** on the unauthenticated `/api/board/import`. Move to the SheetJS CDN build or an alternative.
 - [ ] **Validate the client-supplied jobs array** in `/import` (and the manual-JSON import path) — currently trusts `Job[]` verbatim and re-serves it as events. Add a 404/guard for status/note/ship-date on unknown job numbers.
-- [ ] **Serialize board-state read-modify-write** (mutation queue or per-job optimistic concurrency) — concurrent edits currently clobber each other (lost notes/status).
-- [ ] **`parseDateValue` timezone bug** — build dates from local Y/M/D components, not `toISOString().slice(0,10)`, to avoid off-by-one ship dates; also handle Excel error strings.
+- [x] **Serialize board-state read-modify-write** (mutation queue or per-job optimistic concurrency) — concurrent edits currently clobber each other (lost notes/status). — DONE (import path now serialized)
+- [x] **`parseDateValue` timezone bug** — build dates from local Y/M/D components, not `toISOString().slice(0,10)`, to avoid off-by-one ship dates; also handle Excel error strings. — DONE (returns null for garbage, 4-digit year required)
 - [ ] **Guard `job.pm`** in `events.ts` so one bad job doesn't drop all board ship-date events.
-- [ ] **Token-refresh resilience** — classify transient vs `invalid_grant`, add retry/backoff, and surface a visible "re-auth required" / TEST MODE state in the UI instead of failing silently.
+- [x] **Token-refresh resilience** — classify transient vs `invalid_grant`, add retry/backoff, and surface a visible "re-auth required" / TEST MODE state in the UI instead of failing silently. — DONE (60s quick retry on transient failure)
 - [ ] **Add `/api/*` 404 JSON handler** before the SPA `*` catch-all (unknown API routes currently return index.html / 200 HTML).
 - [ ] **URL-encode interpolated Graph IDs** (siteId, driveId, calendarId, search) in `graph/sharepoint.ts` and `graph/events.ts`.
-- [ ] **Import orphan/isNew handling** — prune stale board-state entries on re-import; preserve `isNew` until acknowledged.
+- [x] **Import orphan/isNew handling** — prune stale board-state entries on re-import; preserve `isNew` until acknowledged. — DONE (prune now preserves notes; isNew logic unchanged)
 - [ ] **Auto-update.sh** — guard against missing/non-git `INSTALL_DIR` before cd/git; finite git transfer timeouts (`GIT_HTTP_LOW_SPEED_LIMIT/TIME`); defer `rm -rf node_modules` until npm reachability confirmed.
 
 ### Medium
+- [ ] **Verify backup scripts on VM**: `backup.sh` / `restore.sh` / `nexus-kiosk-backup.timer` are in place but untested on the live VM (10.10.11.24). Verify: timer fires, archives appear under `/var/backups/nexus-kiosk/`, and `restore.sh latest` successfully stops → restores → restarts the backend.
+- [ ] **PM on calendar events**: Calendar events show `#{jobNumber} · {customer}`. If stakeholders need PM visible, add `job.pm` to subject/bodyPreview in `server/src/routes/events.ts`.
+- [ ] **"Completed" vs "Ready to Ship" label**: Spec says In Process / Completed / Shipped; app uses In Progress / Ready to Ship / Shipped. Change `statusLabel('ready_to_ship')` in `client/src/components/board/boardColors.ts` + `statusLabels` in `server/src/routes/events.ts` if the literal word "Completed" is required. No data model change.
+- [ ] **Feature B (deferred): lightweight ADMIN_TOKEN gate**: When protection is needed, add `ADMIN_TOKEN` env var + ~20-line Express middleware on `POST /api/board/import`, `POST /api/board/config`, `POST /api/config`. No default credential. Use `x-admin-token` header (sidesteps CSRF). Land with `express-rate-limit`. Defer full RBAC until O365 identity arrives.
+- [ ] **OneDrive offsite backup** (deferred until O365 integration): Once Graph creds exist, add `Files.ReadWrite.AppFolder` scope and a daily timer that pushes the newest local `board-*.tar.gz` to OneDrive `/Apps/NexusKioskBackups/`.
 - [ ] Add a `validateEnv()` list-all-missing guard at the top of bootstrap() (clear exit-1 message).
 - [ ] Gate `errorHandler` on `NODE_ENV` — generic 5xx messages in production, detailed in dev/4xx.
 - [ ] Add rate limiting (`express-rate-limit`) — global + stricter on `/api/auth/start`; consider protecting the currently-unauthenticated `/api/board` and `/api/config`.
@@ -138,15 +175,17 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 - [ ] Config cache invalidation in `configService` (cache never invalidated; shared mutable object aliases DEFAULT_CONFIG nested objects).
 - [ ] Validate Open-Meteo response shape in `WeatherWidget` before reading nested arrays.
 - [ ] Drop imperative `navigate()` in App's auth effect; rely on declarative `<Navigate>` guards (stops fighting react-router).
-- [ ] Type `useImportJobs` mutation TData/TError to remove unsafe `as` casts in `ImportView`.
+- [x] Type `useImportJobs` mutation TData/TError to remove unsafe `as` casts in `ImportView`. — DONE (boardApi.ts return types updated)
 - [ ] Remove duplicate `isSuper`/`else` branch in `JobListView` tab filter; add `queryClient` to invalidate-effect deps.
 - [ ] Coordinate JobCard Apply (single save or `Promise.all`) and surface save errors instead of silently re-syncing.
-- [ ] XLSM import: warn when "Active Projects" sheet or job-number column is missing.
-- [ ] Extend `/health` (or add `/ready`) to report authenticated / testMode / token-expiry.
+- [x] XLSM import: warn when "Active Projects" sheet or job-number column is missing. — DONE (rowErrors now reported)
+- [x] Extend `/health` (or add `/ready`) to report authenticated / testMode / token-expiry. — DONE
 
 ### Low / polish
+- [ ] **Visible note-save error feedback**: `onError` for `useAddJobNote`/`useDeleteJobNote` currently logs to `console.error` only. Add an inline error message in `NotesSection` so the user knows when a note failed to save.
+- [ ] **Server-side rowErrors truncation**: ImportView caps display at 50 rowErrors client-side. Also truncate server-side to first 50 + summary line to bound response payload for very broken spreadsheets.
 - [ ] AES-256-GCM + random per-file salt in `tokenStore` (currently AES-256-CBC, unauthenticated, hardcoded salt).
-- [ ] `crypto.randomUUID()` for note IDs (hrtime-based IDs collide across restarts).
+- [x] `crypto.randomUUID()` for note IDs (hrtime-based IDs collide across restarts). — DONE
 - [ ] De-dupe Ctrl+S / Ctrl+F handlers between App and Dashboard.
 - [ ] Memoize NotesSection sort and AgendaRail today/tomorrow computation.
 - [ ] Guard SettingsPanel `NumberField` against NaN / clamp to min/max; validate config numeric ranges server-side (startHour/endHour/refreshInterval/weatherLat/lon).

@@ -11,6 +11,10 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function formatSectionDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -61,44 +65,85 @@ const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
   sortGroup(todayEvents);
   sortGroup(tomorrowEvents);
 
-  const renderEvent = (event: CalendarEvent) => (
-    <div
-      key={event.id}
-      className="flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
-    >
-      <span
-        className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 rounded-full"
-        style={{ backgroundColor: event.calendarColor || '#3b82f6' }}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm leading-tight font-medium text-slate-200">
-          {event.subject}
-        </p>
-        <p className="text-xs text-slate-400 mt-0.5">
-          {event.isAllDay
-            ? 'All day'
-            : `${formatTime(event.startDateTime)} – ${formatTime(event.endDateTime)}`}
-          {event.location ? ` · ${event.location}` : ''}
-        </p>
+  const renderEvent = (event: CalendarEvent) => {
+    const start = new Date(event.startDateTime);
+    const end = new Date(event.endDateTime);
+    const inProgress = !event.isAllDay && start <= now && end > now;
+    const accent = event.calendarColor || '#3b82f6';
+
+    const secondaryParts: string[] = [];
+    if (event.location) secondaryParts.push(event.location);
+    if (event.calendarName) secondaryParts.push(event.calendarName);
+
+    return (
+      <div
+        key={event.id}
+        className="flex items-stretch gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
+      >
+        {/* Time column */}
+        <div className="flex w-14 flex-shrink-0 flex-col items-end justify-center text-right">
+          {event.isAllDay ? (
+            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-300">
+              All day
+            </span>
+          ) : (
+            <>
+              <span className="text-xs font-semibold leading-tight text-slate-200">
+                {formatTime(event.startDateTime)}
+              </span>
+              <span className="text-[11px] leading-tight text-slate-500">
+                {formatTime(event.endDateTime)}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Colored accent bar */}
+        <span
+          className="w-1 flex-shrink-0 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
+
+        {/* Details */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-[15px] font-medium leading-tight text-slate-100">
+              {event.subject}
+            </p>
+            {inProgress && (
+              <span className="flex-shrink-0 rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-300">
+                Now
+              </span>
+            )}
+          </div>
+          {secondaryParts.length > 0 && (
+            <p className="mt-0.5 truncate text-xs text-slate-400">
+              {secondaryParts.join(' · ')}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const isEmpty = todayEvents.length === 0 && tomorrowEvents.length === 0;
 
   return (
     <div className={`flex flex-col overflow-hidden ${className}`}>
-      <div className="overflow-y-auto flex-1 space-y-4 pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+      <div className="flex-1 space-y-4 overflow-y-auto pr-1 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
         {isEmpty && (
-          <p className="text-sm text-slate-500 text-center py-4">No upcoming events</p>
+          <div className="flex flex-col items-center justify-center gap-1 py-8 text-center">
+            <p className="text-sm font-medium text-slate-400">Nothing on the agenda</p>
+            <p className="text-xs text-slate-600">No events for today or tomorrow</p>
+          </div>
         )}
 
         {todayEvents.length > 0 && (
           <section>
             <h3 className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-              Today
+              Today <span className="text-slate-600">— {formatSectionDate(todayStart)}</span>
             </h3>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {todayEvents.map(renderEvent)}
             </div>
           </section>
@@ -107,9 +152,9 @@ const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
         {tomorrowEvents.length > 0 && (
           <section>
             <h3 className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-              Tomorrow
+              Tomorrow <span className="text-slate-600">— {formatSectionDate(tomorrowStart)}</span>
             </h3>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {tomorrowEvents.map(renderEvent)}
             </div>
           </section>

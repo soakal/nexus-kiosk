@@ -133,9 +133,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const localizer = showWeekends ? localizerSun : localizerMon;
 
+  // Only the month view dims weekends (week view uses work_week which drops
+  // them entirely). When weekends are hidden we use the Mon-start localizer,
+  // so the 7 columns are Mon..Sun → Saturday is col 6, Sunday is col 7.
+  const weekendsHidden = !showWeekends && displayMode === 'month';
+
   return (
     <div
-      className={`nexus-calendar-wrapper overflow-hidden rounded-xl bg-white/5 ${className}`}
+      className={`nexus-calendar-wrapper overflow-hidden rounded-xl bg-white/5 ${weekendsHidden ? 'weekends-hidden' : ''} ${className}`}
       style={{ height: '100%' }}
     >
       <style>{`
@@ -260,9 +265,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .nexus-calendar-wrapper .rbc-day-bg.rbc-weekend-dim {
           background: rgba(0,0,0,0.35) !important;
         }
-        /* Also dim the date number in dimmed weekend cells */
-        .nexus-calendar-wrapper .rbc-month-row .rbc-date-cell:nth-child(7),
-        .nexus-calendar-wrapper .rbc-month-row .rbc-date-cell:nth-child(1) {
+        /* Also dim the date number in weekend cells — only when weekends are
+           hidden (month view). The Mon-start localizer used in that mode puts
+           Saturday in column 6 and Sunday in column 7. The background dim is
+           gated the same way via dayPropGetter's rbc-weekend-dim. */
+        .weekends-hidden .rbc-month-row .rbc-date-cell:nth-child(6),
+        .weekends-hidden .rbc-month-row .rbc-date-cell:nth-child(7) {
           opacity: 0.35;
         }
       `}</style>

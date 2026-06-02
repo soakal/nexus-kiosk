@@ -1,0 +1,11 @@
+[Unit]
+Description=Nexus Kiosk — Board data backup
+After=network.target
+
+[Service]
+Type=oneshot
+User=NEXUS_USER_PLACEHOLDER
+ExecStart=/bin/bash NEXUS_INSTALL_DIR_PLACEHOLDER/deploy/backup.sh
+StandardOutput=append:/var/log/nexus-kiosk/backup.log
+StandardError=append:/var/log/nexus-kiosk/backup.log
+Environment=INSTALL_DIR=NEXUS_INSTALL_DIR_PLACEHOLDER

@@ -93,6 +93,13 @@ app.get('/health', (_req: Request, res: Response) => {
     authenticated: isAuthenticated(),
     needsReauth: needsReauthentication(),
     testMode: process.env.DISABLE_AZURE === 'true',
+    // Initialization is "done" once the token is resolved one way or another:
+    // test mode, a live token, or a known re-auth state. Lets auto-update.sh
+    // poll for ready:true to know token init finished (even if needsReauth).
+    ready:
+      process.env.DISABLE_AZURE === 'true' ||
+      isAuthenticated() ||
+      needsReauthentication(),
   });
 });
 
@@ -140,13 +147,29 @@ async function bootstrap(): Promise<void> {
     );
   }
 
-  app.listen(port, () => {
+  const httpServer = app.listen(port, () => {
     logger.info(`Server listening on port ${port}`, {
       port,
       env: process.env.NODE_ENV ?? 'development',
       authenticated,
     });
   });
+
+  // Graceful shutdown: stop accepting connections, drain in-flight requests,
+  // then exit. Force-exit after 10s so a hung connection can't strand systemd.
+  function gracefulShutdown(signal: string): void {
+    logger.info(`Received ${signal}, shutting down gracefully`);
+    httpServer.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      logger.warn('Forcing exit after shutdown timeout');
+      process.exit(1);
+    }, 10_000);
+  }
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 bootstrap().catch((err: unknown) => {

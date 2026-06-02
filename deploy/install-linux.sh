@@ -402,7 +402,10 @@ step "Step 8: Installing systemd services"
 install_unit() {
     local src="$1" dest="$2" tmp
     tmp=$(mktemp)
-    sed "s|KIOSK_USER|$KIOSK_USER|g; s|INSTALL_DIR|$INSTALL_DIR|g" "$src" > "$tmp"
+    sed -e "s|NEXUS_INSTALL_DIR_PLACEHOLDER|$INSTALL_DIR|g" \
+        -e "s|NEXUS_USER_PLACEHOLDER|$KIOSK_USER|g" \
+        -e "s|KIOSK_USER|$KIOSK_USER|g" \
+        -e "s|INSTALL_DIR|$INSTALL_DIR|g" "$src" > "$tmp"
     as_root cp "$tmp" "/etc/systemd/system/$dest"
     rm -f "$tmp"
     echo "  - /etc/systemd/system/$dest"
@@ -414,13 +417,23 @@ install_unit "$INSTALL_DIR/deploy/nexus-kiosk-updater.service"    "nexus-kiosk-u
 as_root cp "$INSTALL_DIR/deploy/nexus-kiosk-updater.timer" "/etc/systemd/system/nexus-kiosk-updater.timer"
 echo "  - /etc/systemd/system/nexus-kiosk-updater.timer"
 
-chmod +x "$INSTALL_DIR/deploy/start-kiosk.sh" "$INSTALL_DIR/deploy/auto-update.sh" 2>/dev/null || true
+install_unit "$INSTALL_DIR/deploy/nexus-kiosk-backup.service"     "nexus-kiosk-backup.service"
+as_root cp "$INSTALL_DIR/deploy/nexus-kiosk-backup.timer" "/etc/systemd/system/nexus-kiosk-backup.timer"
+echo "  - /etc/systemd/system/nexus-kiosk-backup.timer"
+
+# Backup destination for board data archives.
+as_root mkdir -p /var/backups/nexus-kiosk
+as_root chown "$KIOSK_USER":root /var/backups/nexus-kiosk 2>/dev/null || true
+
+chmod +x "$INSTALL_DIR/deploy/start-kiosk.sh" "$INSTALL_DIR/deploy/auto-update.sh" \
+         "$INSTALL_DIR/deploy/backup.sh" "$INSTALL_DIR/deploy/restore.sh" 2>/dev/null || true
 
 as_root systemctl daemon-reload
 as_root systemctl enable dashboard-backend.service
 as_root systemctl enable dashboard-kiosk.service
 as_root systemctl enable --now nexus-kiosk-updater.timer
-echo "Services enabled (auto-update runs weekly: Sunday 03:30)"
+as_root systemctl enable --now nexus-kiosk-backup.timer
+echo "Services enabled (auto-update runs weekly: Sunday 03:30; backups every 6h)"
 echo ""
 
 # ---- Step 9: nexus-kiosk command ------------------------------------------

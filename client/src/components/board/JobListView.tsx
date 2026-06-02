@@ -20,6 +20,8 @@ export function JobListView({ tab }: Props) {
   const [showAll, setShowAll] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [search, setSearch] = useState('')
+  const [spareGearOpen, setSpareGearOpen] = useState(false)
+  const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset filters whenever the active user changes
@@ -34,6 +36,18 @@ export function JobListView({ tab }: Props) {
     const el = document.getElementById('board-scroll')
     if (el) el.scrollTop = 0
   }, [search])
+
+  // Close gear popover on outside click
+  useEffect(() => {
+    if (!spareGearOpen) return
+    const handler = (e: MouseEvent) => {
+      if (gearRef.current && !gearRef.current.contains(e.target as Node)) {
+        setSpareGearOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [spareGearOpen])
 
   const commitSearch = () => setSearch(inputValue)
 
@@ -67,8 +81,6 @@ export function JobListView({ tab }: Props) {
 
   const spare = norm(config.spareCarrier)
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
-
-  // Unique PM names from the actual data for the spare-parts picker
   const pmUsers = users.filter((u) => u.role === 'pm')
 
   // Step 1: tab filter — spare-parts always filters by spare carrier (even super user)
@@ -76,7 +88,7 @@ export function JobListView({ tab }: Props) {
   if (tab === 'spare-parts') {
     tabFiltered = jobs.filter((j) => norm(j.pm) === spare)
   } else if (isSuper) {
-    tabFiltered = jobs  // super user sees all project jobs
+    tabFiltered = jobs
   } else {
     tabFiltered = jobs.filter((j) => norm(j.pm) !== spare)
   }
@@ -116,33 +128,8 @@ export function JobListView({ tab }: Props) {
 
   return (
     <div>
-      {/* Spare Parts PM picker — shown only on the spare-parts tab */}
-      {tab === 'spare-parts' && (
-        <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 mb-3 mt-6">
-          <span className="text-slate-400 text-xs shrink-0">Spare Parts PM:</span>
-          <select
-            value={config.spareCarrier}
-            onChange={(e) =>
-              updateConfig.mutate({ spareCarrier: e.target.value.trim().toLowerCase() })
-            }
-            className="flex-1 bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
-          >
-            <option value="">— Not set —</option>
-            {pmUsers.map((u) => (
-              <option key={u.id} value={u.name}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-          {spareNotConfigured
-            ? <span className="text-amber-400 text-xs shrink-0">⚠ Select a PM to filter this tab</span>
-            : <span className="text-slate-500 text-xs shrink-0">({tabFiltered.length} jobs)</span>
-          }
-        </div>
-      )}
-
-      {/* Sticky search bar — pt-6 provides the top spacing (main has no top padding) */}
-      <div className={`sticky top-0 z-20 bg-[#0f1117] pb-3 mb-3 ${tab === 'spare-parts' ? '' : 'pt-6'}`}>
+      {/* Sticky search bar */}
+      <div className="sticky top-0 z-20 bg-[#0f1117] pt-6 pb-3 mb-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -172,6 +159,58 @@ export function JobListView({ tab }: Props) {
           >
             Search
           </button>
+
+          {/* Gear icon — only on spare-parts tab */}
+          {tab === 'spare-parts' && (
+            <div ref={gearRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setSpareGearOpen((o) => !o)}
+                title="Change Spare Parts PM"
+                className={`p-2 rounded-lg border transition-colors ${
+                  spareGearOpen || spareNotConfigured
+                    ? 'bg-slate-700 border-slate-500 text-slate-200'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                }`}
+              >
+                {/* gear SVG */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
+
+              {/* Popover */}
+              {spareGearOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-slate-800 border border-slate-600 rounded-xl shadow-xl z-30 p-4">
+                  <p className="text-slate-300 text-sm font-medium mb-3">Spare Parts Manager</p>
+                  <p className="text-slate-500 text-xs mb-3">
+                    Jobs assigned to this PM appear in the Spare Parts tab for all users.
+                  </p>
+                  <select
+                    value={config.spareCarrier}
+                    onChange={(e) => {
+                      updateConfig.mutate(
+                        { spareCarrier: e.target.value.trim().toLowerCase() },
+                        { onSuccess: () => setSpareGearOpen(false) }
+                      )
+                    }}
+                    className="w-full bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="">— Not set —</option>
+                    {pmUsers.map((u) => (
+                      <option key={u.id} value={u.name}>
+                        {u.name}{norm(u.name) === spare ? ' ✓' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {spareNotConfigured && (
+                    <p className="text-amber-400 text-xs mt-2">⚠ No PM selected — Spare Parts tab will be empty.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-2">
@@ -207,7 +246,7 @@ export function JobListView({ tab }: Props) {
       {/* key={search} forces the list to remount on every committed search */}
       {sorted.length === 0 ? (
         <p className="text-slate-500 text-sm mt-2">
-          {spareNotConfigured ? 'Set a Spare Parts PM above to see jobs here.' : 'No jobs found.'}
+          {spareNotConfigured ? 'Click the gear ⚙ above to set a Spare Parts PM.' : 'No jobs found.'}
         </p>
       ) : (
         <div key={search}>

@@ -63,13 +63,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const rbcEvents = useMemo<RBCCalendarEvent[]>(
     () =>
-      events.map((ev) => ({
-        title: ev.subject,
-        start: new Date(ev.startDateTime),
-        end: new Date(ev.endDateTime),
-        allDay: ev.isAllDay,
-        resource: ev,
-      })),
+      events.map((ev) => {
+        const start = new Date(ev.startDateTime);
+        let end = new Date(ev.endDateTime);
+        // Graph API all-day events end at 00:00:00 the NEXT day (exclusive).
+        // Subtract 1 ms so react-big-calendar keeps them inside the start-day
+        // cell instead of bleeding into the following day's column.
+        if (ev.isAllDay && end > start && end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0) {
+          end = new Date(end.getTime() - 1);
+        }
+        return { title: ev.subject, start, end, allDay: ev.isAllDay, resource: ev };
+      }),
     [events]
   );
 
@@ -265,6 +269,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         }
       `}</style>
       <Calendar
+        key={String(showWeekends)}
         localizer={localizer}
         events={rbcEvents}
         view={viewMap[displayMode]}

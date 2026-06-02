@@ -31,6 +31,7 @@ export function JobListView({ tab }: Props) {
     setShowAll(false)
     setInputValue('')
     setSearch('')
+    setSpareGearOpen(false)
     queryClient.invalidateQueries({ queryKey: ['board'] })
   }, [activeUser?.id])
 

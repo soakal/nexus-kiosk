@@ -142,6 +142,20 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     log "Rebuilding..."
     npm run build
 
+    # Re-install service file so any changes (e.g. NODE_ENV, paths) take effect
+    log "Updating service file..."
+    SERVICE_SRC="$INSTALL_DIR/deploy/dashboard-backend.service"
+    SERVICE_DEST="/etc/systemd/system/dashboard-backend.service"
+    sed -e "s|INSTALL_DIR|$INSTALL_DIR|g" -e "s|KIOSK_USER|$KIOSK_USER|g" \
+        "$SERVICE_SRC" | as_root tee "$SERVICE_DEST" > /dev/null
+    as_root systemctl daemon-reload
+
+    # Verify client/dist exists before starting — rebuild if missing
+    if [ ! -f "$INSTALL_DIR/client/dist/index.html" ]; then
+        warn "client/dist/index.html missing — rebuilding client..."
+        npm run build
+    fi
+
     log "Restarting services..."
     as_root fuser -k 3001/tcp 2>/dev/null || true
     as_root systemctl restart dashboard-backend.service

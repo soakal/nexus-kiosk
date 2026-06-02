@@ -10,6 +10,7 @@ WorkingDirectory=INSTALL_DIR
 ExecStart=/usr/bin/node INSTALL_DIR/server/dist/index.js
 Restart=always
 RestartSec=10
+Environment=NODE_ENV=production
 EnvironmentFile=INSTALL_DIR/.env
 StandardOutput=append:/var/log/nexus-kiosk/backend.log
 StandardError=append:/var/log/nexus-kiosk/backend.log

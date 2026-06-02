@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useBoardUsers, useBoardConfig, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobStatus, BoardUser, DEFAULT_BOARD_CONFIG } from '../../types/board'
@@ -22,10 +22,16 @@ export default function UsersView() {
   const { config } = useBoardConfig()
   const updateConfig = useUpdateBoardConfig()
   const location = useLocation()
+  const navigate = useNavigate()
   const selectPrompt = !!(location.state as { selectPrompt?: boolean })?.selectPrompt
 
   const activeUser = useAppStore((s) => s.activeUser)
   const setActiveUser = useAppStore((s) => s.setActiveUser)
+
+  const handleSelectUser = (user: Parameters<typeof setActiveUser>[0]) => {
+    setActiveUser(user)
+    if (selectPrompt && user) navigate('/board')
+  }
 
   // ── color state ───────────────────────────────────────────────────────────
   const [localColors, setLocalColors] = useState<Record<JobStatus, string>>(
@@ -88,7 +94,7 @@ export default function UsersView() {
             return (
               <button
                 key={user.id}
-                onClick={() => setActiveUser(user)}
+                onClick={() => handleSelectUser(user)}
                 className={[
                   'bg-slate-800 rounded-lg p-3 cursor-pointer border-2 text-left transition-colors',
                   isSelected

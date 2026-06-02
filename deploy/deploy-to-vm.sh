@@ -29,14 +29,21 @@ INSTALL_DIR="$INSTALL_DIR"
 BRANCH="$BRANCH"
 VM_USER="$VM_USER"
 
+# Bail out clearly if the VM cannot reach GitHub instead of hanging on git.
+curl -fsS --connect-timeout 5 --max-time 10 -o /dev/null https://github.com 2>/dev/null \
+    || { echo 'VM cannot reach github.com — check the VM network connection' >&2; exit 1; }
+
+# Finite git timeout so a stalled transfer aborts instead of hanging.
+export GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=20
 if [ -d "\$INSTALL_DIR/.git" ]; then
     echo "Repository already exists — pulling latest changes..."
     cd "\$INSTALL_DIR"
-    git fetch origin "\$BRANCH"
-    git reset --hard "origin/\$BRANCH"
+    git fetch origin "\$BRANCH" || { echo 'git fetch failed on VM' >&2; exit 1; }
+    git reset --hard "origin/\$BRANCH" || { echo 'git reset failed on VM' >&2; exit 1; }
 else
     echo "Cloning repository..."
-    git clone -b "\$BRANCH" https://github.com/soakal/nexus-kiosk.git "\$INSTALL_DIR"
+    git clone -b "\$BRANCH" https://github.com/soakal/nexus-kiosk.git "\$INSTALL_DIR" \
+        || { echo 'git clone failed on VM' >&2; exit 1; }
     cd "\$INSTALL_DIR"
 fi
 

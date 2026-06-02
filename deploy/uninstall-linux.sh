@@ -73,7 +73,7 @@ fi
 echo ""
 
 # Handle application files
-read -p "$(echo -e ${YELLOW}Remove application files at \$INSTALL_DIR? \(yes/no\):${NC} )" -r remove_app
+read -p "$(echo -e ${YELLOW}Remove application files at $INSTALL_DIR? \(yes/no\):${NC} )" -r remove_app
 if [ "$remove_app" = "yes" ]; then
     read -p "$(echo -e ${RED}Type DELETE to confirm permanent deletion:${NC} )" -r confirm_delete
     if [ "$confirm_delete" = "DELETE" ]; then

@@ -34,11 +34,13 @@ BACKEND_URL="http://localhost:3001"
 MAX_RETRIES=30
 RETRY_SLEEP=3
 RETRY_COUNT=0
+READY=0
 
 echo "Waiting for backend to be ready..."
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     if curl -sf "$BACKEND_URL/health" > /dev/null 2>&1; then
         echo "Backend is ready!"
+        READY=1
         break
     fi
     echo "Backend not ready, retrying in ${RETRY_SLEEP}s... (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)"
@@ -46,7 +48,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     RETRY_COUNT=$((RETRY_COUNT + 1))
 done
 
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+if [ $READY -ne 1 ]; then
     echo "Warning: Backend failed health check after $MAX_RETRIES attempts, starting kiosk anyway..."
 fi
 

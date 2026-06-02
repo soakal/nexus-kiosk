@@ -9,7 +9,9 @@ import {
   useSetJobShipDate,
   useAddJobNote,
   useDeleteJobNote,
+  usePresence,
 } from '../../hooks/useBoard'
+import { claimPresence, releasePresence } from '../../api/boardApi'
 
 interface Props {
   job: BoardJob
@@ -44,6 +46,22 @@ export function JobCard({ job, activeUser, config }: Props) {
   const dateDirty = pendingShipDate !== job.effectiveShipDate
   const isDirty = statusDirty || dateDirty
   const isSaving = setJobStatus.isPending || setJobShipDate.isPending
+
+  // Presence: broadcast when dirty, show warning when someone else is editing
+  const presenceMap = usePresence()
+  const userId = activeUser?.id
+  const userName = activeUser?.name
+  useEffect(() => {
+    if (!isDirty || !userId || !userName) return
+    claimPresence(job.jobNumber, userId, userName)
+    const interval = setInterval(() => claimPresence(job.jobNumber, userId, userName), 15000)
+    return () => {
+      clearInterval(interval)
+      releasePresence(job.jobNumber, userId)
+    }
+  }, [isDirty, userId, userName, job.jobNumber])
+
+  const otherEditors = (presenceMap[job.jobNumber] ?? []).filter(e => e.userId !== userId)
 
   const handleApply = () => {
     if (!activeUser) return
@@ -148,6 +166,13 @@ export function JobCard({ job, activeUser, config }: Props) {
             onDeleteNote={handleDeleteNote}
             isSubmitting={addJobNote.isPending}
           />
+        </div>
+      )}
+
+      {/* Other-user editing warning */}
+      {otherEditors.length > 0 && (
+        <div className="mt-2 px-2 py-1.5 bg-amber-900/30 border border-amber-700/40 rounded-lg text-amber-400 text-xs">
+          {otherEditors.map(e => e.userName).join(' & ')} {otherEditors.length === 1 ? 'is' : 'are'} editing this job
         </div>
       )}
 

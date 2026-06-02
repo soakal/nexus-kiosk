@@ -128,6 +128,30 @@ export async function addJobNote(
   return response.json();
 }
 
+export type PresenceMap = Record<string, { userId: string; userName: string }[]>
+
+export async function getPresence(): Promise<PresenceMap> {
+  const response = await fetch('/api/board/presence');
+  if (!response.ok) throw new Error('Failed to get presence');
+  return response.json();
+}
+
+export async function claimPresence(jobNumber: string, userId: string, userName: string): Promise<void> {
+  await fetch(`/api/board/presence/${encodeURIComponent(jobNumber)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, userName }),
+  });
+}
+
+export async function releasePresence(jobNumber: string, userId: string): Promise<void> {
+  await fetch(`/api/board/presence/${encodeURIComponent(jobNumber)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId }),
+  });
+}
+
 export async function deleteJobNote(
   jobNumber: string,
   noteId: string,

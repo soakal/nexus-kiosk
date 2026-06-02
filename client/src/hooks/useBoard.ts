@@ -10,6 +10,8 @@ import {
   setJobShipDate,
   addJobNote,
   deleteJobNote,
+  getPresence,
+  type PresenceMap,
 } from '../api/boardApi';
 import { DEFAULT_BOARD_CONFIG, Job, JobStatus, Actor } from '../types/board';
 
@@ -109,6 +111,16 @@ export function useAddJobNote() {
       addJobNote(jobNumber, text, actor),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
   });
+}
+
+export function usePresence(): PresenceMap {
+  const q = useQuery({
+    queryKey: ['board', 'presence'],
+    queryFn: getPresence,
+    refetchInterval: 10000,
+    staleTime: 0,
+  });
+  return q.data ?? {};
 }
 
 export function useDeleteJobNote() {

@@ -17,6 +17,51 @@ import type { Job, Actor } from '../types/board.js'
 
 export const boardRouter = Router()
 
+// ---------------------------------------------------------------------------
+// Presence store — in-memory, ephemeral (survives only while server is up)
+// jobNumber → Map<userId, { userName, expiresAt }>
+// ---------------------------------------------------------------------------
+interface PresenceEntry { userName: string; expiresAt: number }
+const presenceStore = new Map<string, Map<string, PresenceEntry>>()
+
+function cleanPresence() {
+  const now = Date.now()
+  for (const [job, editors] of presenceStore.entries()) {
+    for (const [uid, entry] of editors.entries()) {
+      if (entry.expiresAt <= now) editors.delete(uid)
+    }
+    if (editors.size === 0) presenceStore.delete(job)
+  }
+}
+
+boardRouter.get('/presence', (_req: Request, res: Response) => {
+  cleanPresence()
+  const result: Record<string, { userId: string; userName: string }[]> = {}
+  for (const [job, editors] of presenceStore.entries()) {
+    result[job] = Array.from(editors.entries()).map(([userId, { userName }]) => ({ userId, userName }))
+  }
+  res.json(result)
+})
+
+boardRouter.post('/presence/:jobNumber', (req: Request, res: Response) => {
+  const { userId, userName } = req.body as { userId?: string; userName?: string }
+  if (!userId || !userName) { res.status(400).json({ error: 'userId and userName required' }); return }
+  const job = req.params.jobNumber
+  if (!presenceStore.has(job)) presenceStore.set(job, new Map())
+  presenceStore.get(job)!.set(userId, { userName, expiresAt: Date.now() + 30000 })
+  res.json({ ok: true })
+})
+
+boardRouter.delete('/presence/:jobNumber', (req: Request, res: Response) => {
+  const { userId } = req.body as { userId?: string }
+  if (userId) {
+    const editors = presenceStore.get(req.params.jobNumber)
+    editors?.delete(userId)
+    if (editors?.size === 0) presenceStore.delete(req.params.jobNumber)
+  }
+  res.json({ ok: true })
+})
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB

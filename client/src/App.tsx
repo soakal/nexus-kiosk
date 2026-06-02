@@ -20,7 +20,7 @@ function AppInner() {
   const location = useLocation();
 
   // Auth — always polling
-  const { isAuthenticated } = useAuthStatus(true);
+  const { isAuthenticated, isLoading: authLoading } = useAuthStatus(true);
 
   // Server config
   const { config } = useConfig();
@@ -64,13 +64,14 @@ function AppInner() {
 
   // Sync auth state to store and navigate accordingly
   useEffect(() => {
+    if (authLoading) return;
     setIsAuthenticated(isAuthenticated);
     if (isAuthenticated) {
       navigate('/');
     } else if (!location.pathname.startsWith('/board')) {
       navigate('/setup');
     }
-  }, [isAuthenticated, navigate, setIsAuthenticated, location.pathname]);
+  }, [isAuthenticated, authLoading, navigate, setIsAuthenticated, location.pathname]);
 
   // Sync config to store whenever it changes
   useEffect(() => {

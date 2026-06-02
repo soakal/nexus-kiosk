@@ -13,14 +13,12 @@ authRouter.post(
       if (process.env.DISABLE_AZURE === 'true') {
         logger.warn('Test mode: skipping device code flow');
         res.json({
-          codeInfo: {
-            deviceCode: 'test-device-code',
-            userCode: 'TEST-1234',
-            verificationUri: 'https://microsoft.com/devicelogin',
-            expiresIn: 900,
-            interval: 5,
-            message: 'Test mode: no real authentication required',
-          },
+          deviceCode: 'test-device-code',
+          userCode: 'TEST-1234',
+          verificationUri: 'https://microsoft.com/devicelogin',
+          expiresIn: 900,
+          interval: 5,
+          message: 'Test mode: no real authentication required',
         });
         return;
       }

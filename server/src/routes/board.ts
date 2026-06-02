@@ -72,9 +72,10 @@ const upload = multer({
 // so any LAN client can POST arbitrary objects). Coerce known fields to safe
 // shapes and reject rows missing a usable jobNumber.
 // ---------------------------------------------------------------------------
-function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[] } {
+function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[]; importedStatuses: Record<string, 'shipped'> } {
   const jobs: Job[] = []
   const errors: string[] = []
+  const importedStatuses: Record<string, 'shipped'> = {}
 
   const toStr = (v: unknown): string =>
     typeof v === 'string' ? v : v == null ? '' : String(v)
@@ -92,6 +93,9 @@ function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[] } {
       errors.push(`Row ${i}: missing jobNumber`)
       return
     }
+    if (toStr(o.status).trim().toLowerCase() === 'shipped') {
+      importedStatuses[jobNumber] = 'shipped'
+    }
     jobs.push({
       jobNumber,
       pm: toStr(o.pm),
@@ -103,7 +107,7 @@ function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[] } {
     })
   })
 
-  return { jobs, errors }
+  return { jobs, errors, importedStatuses }
 }
 
 // ---------------------------------------------------------------------------
@@ -128,13 +132,16 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
         }
       }
     } else if (Array.isArray(req.body.jobs)) {
-      const { jobs: validated, errors } = validateJobsArray(req.body.jobs)
+      const { jobs: validated, errors, importedStatuses } = validateJobsArray(req.body.jobs)
       if (errors.length > 0) {
         res.status(400).json({ error: 'Invalid jobs', rows: errors })
         return
       }
       jobs = validated
       sourceFile = 'manual-import'
+      for (const [jobNumber, status] of Object.entries(importedStatuses)) {
+        await setJobStatus(jobNumber, status)
+      }
     } else {
       res.status(400).json({ error: 'No file or jobs array provided' })
       return

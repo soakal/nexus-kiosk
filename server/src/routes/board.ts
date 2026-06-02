@@ -120,6 +120,13 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       jobs = result.jobs
       warnings = result.warnings
       sourceFile = req.file.originalname
+      // Apply statuses read from the spreadsheet (e.g. "Shipped") to board-state
+      // so jobs already marked shipped in the source file go straight to Archive.
+      if (Object.keys(result.importedStatuses).length > 0) {
+        for (const [jobNumber, status] of Object.entries(result.importedStatuses)) {
+          await setJobStatus(jobNumber, status)
+        }
+      }
     } else if (Array.isArray(req.body.jobs)) {
       const { jobs: validated, errors } = validateJobsArray(req.body.jobs)
       if (errors.length > 0) {

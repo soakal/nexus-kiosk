@@ -121,6 +121,7 @@ interface ColumnMap {
   pabsComplete: number | null
   shipToPm: number | null
   shipToCustomer: number | null
+  status: number | null
 }
 
 function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: string[] } {
@@ -132,6 +133,7 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
     pabsComplete: null,
     shipToPm: null,
     shipToCustomer: null,
+    status: null,
   }
 
   for (let i = 0; i < headers.length; i++) {
@@ -161,10 +163,13 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       raw === 'ship from vrsi'
     ) {
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i
+    } else if (raw === 'status') {
+      if (colMap.status === null) colMap.status = i
     }
   }
 
   const warnings: string[] = []
+  // status is optional — don't warn if missing, just leave as null
   const fieldNames: Array<keyof ColumnMap> = [
     'jobNumber',
     'pm',
@@ -248,7 +253,7 @@ function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
 export function parseXlsm(
   buffer: Buffer,
   originalName: string,
-): { jobs: Job[]; warnings: string[] } {
+): { jobs: Job[]; warnings: string[]; importedStatuses: Record<string, JobStatus> } {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
 
   // Prefer "Active Projects" sheet; fall back to first sheet
@@ -259,7 +264,7 @@ export function parseXlsm(
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][]
 
   if (rows.length < 2) {
-    return { jobs: [], warnings: ['Spreadsheet is empty'] }
+    return { jobs: [], warnings: ['Spreadsheet is empty'], importedStatuses: {} }
   }
 
   // Active Projects has a numeric index row first — real headers are in row index 1
@@ -272,6 +277,7 @@ export function parseXlsm(
   const { colMap, warnings } = detectColumns(headers)
 
   const jobs: Job[] = []
+  const importedStatuses: Record<string, JobStatus> = {}
 
   for (let r = dataStartIndex; r < rows.length; r++) {
     const row = rows[r] as unknown[]
@@ -291,8 +297,10 @@ export function parseXlsm(
       return parseDateValue(row[col])
     }
 
+    const jobNumber = String(jobNumberRaw).trim()
+
     const job: Job = {
-      jobNumber: String(jobNumberRaw).trim(),
+      jobNumber,
       pm: getString(colMap.pm),
       customer: colMap.customer !== null
         ? (row[colMap.customer] != null ? String(row[colMap.customer]).trim() : '')
@@ -303,10 +311,20 @@ export function parseXlsm(
       shipToCustomer: getDate(colMap.shipToCustomer),
     }
 
+    // Read Status column if present — map spreadsheet text to JobStatus.
+    // Only "Shipped" is authoritative from the spreadsheet; other statuses
+    // are managed within the app and are not overwritten by import.
+    if (colMap.status !== null) {
+      const rawStatus = String(row[colMap.status] ?? '').trim().toLowerCase()
+      if (rawStatus === 'shipped') {
+        importedStatuses[jobNumber] = 'shipped'
+      }
+    }
+
     jobs.push(job)
   }
 
-  return { jobs, warnings }
+  return { jobs, warnings, importedStatuses }
 }
 
 // ---------------------------------------------------------------------------

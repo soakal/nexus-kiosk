@@ -11,9 +11,7 @@ import { CalendarEvent } from '../types/index';
 
 const locales = { 'en-US': enUS };
 
-// When weekends are hidden we start the week on Monday (weekStartsOn: 1) so
-// the calendar anchors correctly and Saturday/Sunday columns don't appear at
-// the edges.  Both localizers are pre-built to avoid re-construction on render.
+// Two localizers: Sun-start for full week, Mon-start for work_week / no-weekends.
 const localizerSun = dateFnsLocalizer({
   format,
   parse,
@@ -106,30 +104,38 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   };
 
-  // Mark Sat (0=Sun,6=Sat in getDay) and Sun columns so the CSS rule below
-  // can collapse them when showWeekends is false.
+  // In month view, dim (not hide) Sat/Sun so event positioning stays correct.
+  // In week view we use work_week which natively excludes weekends — no CSS needed.
   const dayPropGetter = useMemo(
     () => (date: Date) => {
-      const day = date.getDay(); // 0 = Sunday, 6 = Saturday
-      if (!showWeekends && (day === 0 || day === 6)) {
-        return { className: 'rbc-hidden-weekend' };
+      if (!showWeekends && displayMode === 'month') {
+        const day = date.getDay();
+        if (day === 0 || day === 6) {
+          return { className: 'rbc-weekend-dim' };
+        }
       }
       return {};
     },
-    [showWeekends]
+    [showWeekends, displayMode]
   );
+
+  // Week view: use work_week (built-in 5-day view) when weekends are off.
+  // This avoids CSS column-hiding which breaks multi-day event positioning.
+  // Month view: always use 'month' — weekends are dimmed but columns stay intact.
+  const rbcView: 'day' | 'week' | 'work_week' | 'month' =
+    displayMode === 'week' && !showWeekends
+      ? 'work_week'
+      : displayMode === 'day'
+      ? 'day'
+      : displayMode === 'month'
+      ? 'month'
+      : 'week';
 
   const localizer = showWeekends ? localizerSun : localizerMon;
 
-  const viewMap: Record<'day' | 'week' | 'month', 'day' | 'week' | 'month'> = {
-    day: 'day',
-    week: 'week',
-    month: 'month',
-  };
-
   return (
     <div
-      className={`nexus-calendar-wrapper overflow-hidden rounded-xl bg-white/5 ${!showWeekends ? 'nexus-hide-weekends' : ''} ${className}`}
+      className={`nexus-calendar-wrapper overflow-hidden rounded-xl bg-white/5 ${className}`}
       style={{ height: '100%' }}
     >
       <style>{`
@@ -248,31 +254,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .nexus-calendar-wrapper .rbc-header + .rbc-header {
           border-color: rgba(255,255,255,0.08);
         }
-        /* Hide Saturday and Sunday columns when showWeekends=false.
-           dayPropGetter injects rbc-hidden-weekend into rbc-day-bg and
-           rbc-day-slot cells, but react-big-calendar does NOT propagate
-           dayPropGetter className to the rbc-header row.  We scope the
-           nth-child header rule to the nexus-hide-weekends wrapper class so
-           it is only active when showWeekends is false.  Column order when
-           the week starts on Monday: Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat=6
-           Sun=7. */
-        .nexus-calendar-wrapper .rbc-day-bg.rbc-hidden-weekend,
-        .nexus-calendar-wrapper .rbc-day-slot.rbc-hidden-weekend,
-        .nexus-calendar-wrapper .rbc-time-column.rbc-hidden-weekend {
-          display: none !important;
+        /* Month view: dim (not hide) weekend background cells.
+           Hiding would shift multi-day event left/width calculations
+           because RBC computes positions based on 7 columns. */
+        .nexus-calendar-wrapper .rbc-day-bg.rbc-weekend-dim {
+          background: rgba(0,0,0,0.35) !important;
         }
-        /* Header nth-child — scoped to .nexus-hide-weekends set on the
-           wrapper when showWeekends=false */
-        .nexus-hide-weekends .rbc-header:nth-child(6),
-        .nexus-hide-weekends .rbc-header:nth-child(7) {
-          display: none !important;
+        /* Also dim the date number in dimmed weekend cells */
+        .nexus-calendar-wrapper .rbc-month-row .rbc-date-cell:nth-child(7),
+        .nexus-calendar-wrapper .rbc-month-row .rbc-date-cell:nth-child(1) {
+          opacity: 0.35;
         }
       `}</style>
       <Calendar
-        key={String(showWeekends)}
+        key={`${showWeekends}-${displayMode}`}
         localizer={localizer}
         events={rbcEvents}
-        view={viewMap[displayMode]}
+        view={rbcView}
         onView={() => {}}
         eventPropGetter={eventPropGetter}
         dayPropGetter={dayPropGetter}

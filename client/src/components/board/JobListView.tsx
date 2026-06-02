@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
@@ -17,6 +18,7 @@ export function JobListView({ tab }: Props) {
   const { users } = useBoardUsers()
   const updateConfig = useUpdateBoardConfig()
   const { activeUser } = useAppStore()
+  const queryClient = useQueryClient()
   const [showAll, setShowAll] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [search, setSearch] = useState('')
@@ -24,11 +26,12 @@ export function JobListView({ tab }: Props) {
   const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Reset filters whenever the active user changes
+  // Reset filters and refetch fresh data whenever the active user changes
   useEffect(() => {
     setShowAll(false)
     setInputValue('')
     setSearch('')
+    queryClient.invalidateQueries({ queryKey: ['board'] })
   }, [activeUser?.id])
 
   // Scroll to top before paint whenever the committed search changes

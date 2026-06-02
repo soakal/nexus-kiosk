@@ -35,7 +35,7 @@ export default function StatusCheckboxes({ jobNumber, status, disabled, onStatus
 
   return (
     <div className={`flex gap-4 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      {STATUS_ORDER.map((boxStatus) => {
+      {STATUS_ORDER.filter(s => s !== 'none').map((boxStatus) => {
         const checked = isChecked(boxStatus)
         const backgroundColor = DEFAULT_BOARD_CONFIG.statusColors[boxStatus]
 

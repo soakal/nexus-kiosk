@@ -34,40 +34,129 @@ export const mockCalendars: GraphCalendar[] = [
   },
 ];
 
-export function getMockEvents(): MockEvent[] {
-  const now = new Date();
-  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+function dayOffset(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
 
+export function getMockEvents(): MockEvent[] {
   return [
     {
-      id: 'event-1',
-      subject: 'Team Standup',
-      start: {
-        dateTime: tomorrow.toISOString().split('T')[0] + 'T09:00:00',
-        timeZone: 'UTC',
-      },
-      end: {
-        dateTime: tomorrow.toISOString().split('T')[0] + 'T09:30:00',
-        timeZone: 'UTC',
-      },
-      organizer: { emailAddress: { name: 'Alice', address: 'alice@example.com' } },
-      bodyPreview: 'Daily sync',
+      id: 'event-standup-1',
+      subject: 'Daily Standup',
+      start: { dateTime: `${dayOffset(0)}T08:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(0)}T08:15:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Daily team sync',
       isOnlineMeeting: true,
     },
     {
-      id: 'event-2',
-      subject: 'Project Review',
-      start: {
-        dateTime: nextWeek.toISOString().split('T')[0] + 'T14:00:00',
-        timeZone: 'UTC',
-      },
-      end: {
-        dateTime: nextWeek.toISOString().split('T')[0] + 'T15:30:00',
-        timeZone: 'UTC',
-      },
-      organizer: { emailAddress: { name: 'Bob', address: 'bob@example.com' } },
-      bodyPreview: 'Quarterly review of Q2 milestones',
+      id: 'event-standup-2',
+      subject: 'Daily Standup',
+      start: { dateTime: `${dayOffset(1)}T08:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(1)}T08:15:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Daily team sync',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-standup-3',
+      subject: 'Daily Standup',
+      start: { dateTime: `${dayOffset(2)}T08:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(2)}T08:15:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Daily team sync',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-standup-4',
+      subject: 'Daily Standup',
+      start: { dateTime: `${dayOffset(3)}T08:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(3)}T08:15:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Daily team sync',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-standup-5',
+      subject: 'Daily Standup',
+      start: { dateTime: `${dayOffset(4)}T08:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(4)}T08:15:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Daily team sync',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-project-review',
+      subject: 'Project Status Review',
+      start: { dateTime: `${dayOffset(1)}T10:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(1)}T11:00:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Review active project board — statuses, ship dates, blockers',
+      isOnlineMeeting: false,
+    },
+    {
+      id: 'event-customer-call',
+      subject: 'Customer Call — Acme Corp',
+      start: { dateTime: `${dayOffset(2)}T13:30:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(2)}T14:00:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Matt O', address: 'matto@vrs-inc.com' } },
+      bodyPreview: 'Follow up on delivery timeline',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-shipping-review',
+      subject: 'Shipping & Logistics Review',
+      start: { dateTime: `${dayOffset(3)}T09:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(3)}T09:30:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Matt O', address: 'matto@vrs-inc.com' } },
+      bodyPreview: 'Review pending shipments and carrier schedules',
+      isOnlineMeeting: false,
+    },
+    {
+      id: 'event-vendor-call',
+      subject: 'Vendor Check-In',
+      start: { dateTime: `${dayOffset(5)}T11:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(5)}T11:30:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Parts availability update',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-weekly-all-hands',
+      subject: 'Weekly All-Hands',
+      start: { dateTime: `${dayOffset(7)}T09:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(7)}T10:00:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Full team sync — active projects, priorities, announcements',
+      isOnlineMeeting: false,
+    },
+    {
+      id: 'event-pm-sync',
+      subject: 'PM Sync',
+      start: { dateTime: `${dayOffset(8)}T14:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(8)}T14:30:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Project manager weekly alignment',
+      isOnlineMeeting: true,
+    },
+    {
+      id: 'event-delivery-confirm',
+      subject: 'Delivery Confirmation — Job #4821',
+      start: { dateTime: `${dayOffset(10)}T10:30:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(10)}T11:00:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Matt O', address: 'matto@vrs-inc.com' } },
+      bodyPreview: 'Confirm freight pickup with carrier',
+      isOnlineMeeting: false,
+    },
+    {
+      id: 'event-monthly-review',
+      subject: 'Monthly Operations Review',
+      start: { dateTime: `${dayOffset(14)}T09:00:00`, timeZone: 'America/Chicago' },
+      end: { dateTime: `${dayOffset(14)}T10:30:00`, timeZone: 'America/Chicago' },
+      organizer: { emailAddress: { name: 'Jon Shantry', address: 'jons@vrs-inc.com' } },
+      bodyPreview: 'Monthly KPI review, backlog analysis, team capacity',
       isOnlineMeeting: false,
     },
   ];

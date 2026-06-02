@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
+import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
 import { BoardJob } from '../../types/board'
@@ -14,6 +14,8 @@ const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 export function JobListView({ tab }: Props) {
   const { jobs, isLoading } = useBoardJobs()
   const { config } = useBoardConfig()
+  const { users } = useBoardUsers()
+  const updateConfig = useUpdateBoardConfig()
   const { activeUser } = useAppStore()
   const [showAll, setShowAll] = useState(false)
   const [inputValue, setInputValue] = useState('')
@@ -66,6 +68,9 @@ export function JobListView({ tab }: Props) {
   const spare = norm(config.spareCarrier)
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
 
+  // Unique PM names from the actual data for the spare-parts picker
+  const pmUsers = users.filter((u) => u.role === 'pm')
+
   // Step 1: tab filter (super user bypasses — sees all jobs in both tabs)
   let tabFiltered: BoardJob[]
   if (isSuper) {
@@ -107,11 +112,36 @@ export function JobListView({ tab }: Props) {
   })
 
   const canToggle = tab !== 'spare-parts' && !!activeUser && !isSuper && activeUser.role !== 'manual'
+  const spareNotConfigured = tab === 'spare-parts' && !spare
 
   return (
     <div>
+      {/* Spare Parts PM picker — shown only on the spare-parts tab */}
+      {tab === 'spare-parts' && (
+        <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-2 mb-3 mt-6">
+          <span className="text-slate-400 text-xs shrink-0">Spare Parts PM:</span>
+          <select
+            value={config.spareCarrier}
+            onChange={(e) =>
+              updateConfig.mutate({ spareCarrier: e.target.value.trim().toLowerCase() })
+            }
+            className="flex-1 bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+          >
+            <option value="">— Not set —</option>
+            {pmUsers.map((u) => (
+              <option key={u.id} value={u.name}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+          {spareNotConfigured && (
+            <span className="text-amber-400 text-xs shrink-0">⚠ Set a PM to filter</span>
+          )}
+        </div>
+      )}
+
       {/* Sticky search bar — pt-6 provides the top spacing (main has no top padding) */}
-      <div className="sticky top-0 z-20 bg-[#0f1117] pt-6 pb-3 mb-3">
+      <div className={`sticky top-0 z-20 bg-[#0f1117] pb-3 mb-3 ${tab === 'spare-parts' ? '' : 'pt-6'}`}>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -175,7 +205,9 @@ export function JobListView({ tab }: Props) {
 
       {/* key={search} forces the list to remount on every committed search */}
       {sorted.length === 0 ? (
-        <p className="text-slate-500 text-sm mt-2">No jobs found.</p>
+        <p className="text-slate-500 text-sm mt-2">
+          {spareNotConfigured ? 'Set a Spare Parts PM above to see jobs here.' : 'No jobs found.'}
+        </p>
       ) : (
         <div key={search}>
           {sorted.map((job) => (

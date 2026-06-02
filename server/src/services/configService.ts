@@ -37,10 +37,29 @@ export interface SharePointConfig {
   defaultDriveId: string | null;
 }
 
+/**
+ * Persists all client UI-only settings that have no natural home in the other
+ * nested config objects.  Stored under the "ui" key in config.json.
+ */
+export interface UiConfig {
+  displayMode: 'day' | 'week' | 'month';
+  showWeekends: boolean;
+  startHour: number;
+  endHour: number;
+  showAgendaRail: boolean;
+  showNextEvent: boolean;
+  weatherLat: number | null;
+  weatherLon: number | null;
+  tempUnit: 'F' | 'C';
+  fileOpenMode: 'same-window' | 'new-window';
+  sharePointSiteIds: string[];
+}
+
 export interface AppConfig {
   calendar: CalendarConfig;
   display: DisplayConfig;
   sharepoint: SharePointConfig;
+  ui: UiConfig;
   showWeather: boolean;
   weatherLocation: string;
   showClock: boolean;
@@ -67,6 +86,19 @@ const DEFAULT_CONFIG: AppConfig = {
     recentFilesCount: 10,
     defaultSiteId: null,
     defaultDriveId: null,
+  },
+  ui: {
+    displayMode: 'week',
+    showWeekends: false,
+    startHour: 7,
+    endHour: 21,
+    showAgendaRail: true,
+    showNextEvent: true,
+    weatherLat: null,
+    weatherLon: null,
+    tempUnit: 'F',
+    fileOpenMode: 'same-window',
+    sharePointSiteIds: [],
   },
   showWeather: false,
   weatherLocation: '',

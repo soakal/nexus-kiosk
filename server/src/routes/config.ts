@@ -1,55 +1,70 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getConfig, updateConfig, AppConfig } from '../services/configService.js';
+import { getConfig, updateConfig, AppConfig, UiConfig } from '../services/configService.js';
 import { isAuthenticated } from '../auth/tokenRefresher.js';
 import { logger } from '../utils/logger.js';
 
 export const configRouter = Router();
 
 /**
- * The server stores config in a nested shape (calendar, display, sharepoint
- * sub-objects). The React client expects a flat AppConfig (see
+ * The server stores config in a nested shape (calendar, display, sharepoint,
+ * ui sub-objects). The React client expects a flat AppConfig (see
  * client/src/types/index.ts). This function translates between the two so the
  * client never receives the wrong shape and crashes on undefined property access.
+ *
+ * All 18 client fields are mapped explicitly — none are hardcoded constants.
  */
 function toClientConfig(cfg: AppConfig): Record<string, unknown> {
+  const ui = cfg.ui ?? ({} as Partial<UiConfig>);
   return {
+    // calendar
     calendarIds: Array.isArray(cfg.calendar?.enabledCalendarIds)
       ? cfg.calendar.enabledCalendarIds
       : [],
-    displayMode: 'week',
+    // display
+    displayMode: ui.displayMode ?? 'week',
     refreshInterval: cfg.display?.refreshIntervalSeconds ?? 300,
     theme: cfg.display?.theme === 'auto' ? 'dark' : (cfg.display?.theme ?? 'dark'),
     timezone: cfg.display?.timezone ?? 'America/New_York',
-    showWeekends: true,
-    startHour: 7,
-    endHour: 21,
-    showAgendaRail: true,
-    showWeather: cfg.showWeather ?? false,
-    showNextEvent: true,
-    weatherLat: null,
-    weatherLon: null,
     timeFormat: cfg.display?.timeFormat ?? '12h',
-    tempUnit: 'F',
+    // ui — calendar view
+    showWeekends: ui.showWeekends ?? false,
+    startHour: ui.startHour ?? 7,
+    endHour: ui.endHour ?? 21,
+    showAgendaRail: ui.showAgendaRail ?? true,
+    showNextEvent: ui.showNextEvent ?? true,
+    // ui — weather
+    showWeather: cfg.showWeather ?? false,
+    weatherLat: ui.weatherLat ?? null,
+    weatherLon: ui.weatherLon ?? null,
+    tempUnit: ui.tempUnit ?? 'F',
+    // sharepoint
     showRecentFiles: cfg.sharepoint?.enableRecentFiles ?? false,
     recentFilesCount: cfg.sharepoint?.recentFilesCount ?? 8,
-    sharePointSiteIds: cfg.sharepoint?.defaultSiteId ? [cfg.sharepoint.defaultSiteId] : [],
-    fileOpenMode: 'same-window',
+    sharePointSiteIds: Array.isArray(ui.sharePointSiteIds) ? ui.sharePointSiteIds : [],
+    fileOpenMode: ui.fileOpenMode ?? 'same-window',
   };
 }
 
 /**
  * Accept the flat client AppConfig shape on POST and translate it back to the
  * server's nested shape so configService can persist it correctly.
+ *
+ * Every field that the client sends is captured — none are silently discarded.
  */
 function fromClientConfig(flat: Record<string, unknown>): Partial<AppConfig> {
   const partial: Partial<AppConfig> = {};
 
+  // calendar
   if ('calendarIds' in flat && Array.isArray(flat.calendarIds)) {
     partial.calendar = { enabledCalendarIds: flat.calendarIds as string[] } as AppConfig['calendar'];
   }
+
+  // showWeather (top-level on server)
   if ('showWeather' in flat) {
     partial.showWeather = Boolean(flat.showWeather);
   }
+
+  // display sub-object — only update if any display field is present
   if ('refreshInterval' in flat || 'timezone' in flat || 'timeFormat' in flat || 'theme' in flat) {
     partial.display = {
       timezone: (flat.timezone as string | undefined) ?? 'America/New_York',
@@ -59,6 +74,8 @@ function fromClientConfig(flat: Record<string, unknown>): Partial<AppConfig> {
       refreshIntervalSeconds: typeof flat.refreshInterval === 'number' ? flat.refreshInterval : 300,
     };
   }
+
+  // sharepoint sub-object
   if ('showRecentFiles' in flat || 'recentFilesCount' in flat) {
     partial.sharepoint = {
       enableRecentFiles: Boolean(flat.showRecentFiles),
@@ -66,6 +83,45 @@ function fromClientConfig(flat: Record<string, unknown>): Partial<AppConfig> {
       defaultSiteId: null,
       defaultDriveId: null,
     };
+  }
+
+  // ui sub-object — collect all UI-only fields
+  const uiFields: Partial<UiConfig> = {};
+  if ('displayMode' in flat && (flat.displayMode === 'day' || flat.displayMode === 'week' || flat.displayMode === 'month')) {
+    uiFields.displayMode = flat.displayMode;
+  }
+  if ('showWeekends' in flat) {
+    uiFields.showWeekends = Boolean(flat.showWeekends);
+  }
+  if ('startHour' in flat && typeof flat.startHour === 'number') {
+    uiFields.startHour = flat.startHour;
+  }
+  if ('endHour' in flat && typeof flat.endHour === 'number') {
+    uiFields.endHour = flat.endHour;
+  }
+  if ('showAgendaRail' in flat) {
+    uiFields.showAgendaRail = Boolean(flat.showAgendaRail);
+  }
+  if ('showNextEvent' in flat) {
+    uiFields.showNextEvent = Boolean(flat.showNextEvent);
+  }
+  if ('weatherLat' in flat) {
+    uiFields.weatherLat = flat.weatherLat === null ? null : Number(flat.weatherLat);
+  }
+  if ('weatherLon' in flat) {
+    uiFields.weatherLon = flat.weatherLon === null ? null : Number(flat.weatherLon);
+  }
+  if ('tempUnit' in flat && (flat.tempUnit === 'F' || flat.tempUnit === 'C')) {
+    uiFields.tempUnit = flat.tempUnit;
+  }
+  if ('fileOpenMode' in flat && (flat.fileOpenMode === 'same-window' || flat.fileOpenMode === 'new-window')) {
+    uiFields.fileOpenMode = flat.fileOpenMode;
+  }
+  if ('sharePointSiteIds' in flat && Array.isArray(flat.sharePointSiteIds)) {
+    uiFields.sharePointSiteIds = flat.sharePointSiteIds as string[];
+  }
+  if (Object.keys(uiFields).length > 0) {
+    partial.ui = uiFields as UiConfig;
   }
 
   return partial;
@@ -89,12 +145,17 @@ configRouter.post(
   (req: Request, res: Response, next: NextFunction): void => {
     try {
       logger.debug('POST /api/config');
-      // Body may be a flat client shape or the legacy nested shape
+      // Body may be a flat client shape or the legacy nested shape.
+      // Detect the flat client shape by checking for any well-known flat keys.
       const body = req.body as Record<string, unknown>;
-      // Detect flat client shape by presence of top-level calendarIds key
-      const partial = ('calendarIds' in body || 'showWeather' in body || 'refreshInterval' in body)
-        ? fromClientConfig(body)
-        : (body as Partial<AppConfig>);
+      const FLAT_KEYS = new Set([
+        'calendarIds', 'displayMode', 'refreshInterval', 'theme', 'timezone',
+        'showWeekends', 'startHour', 'endHour', 'showAgendaRail', 'showWeather',
+        'showNextEvent', 'weatherLat', 'weatherLon', 'timeFormat', 'tempUnit',
+        'showRecentFiles', 'recentFilesCount', 'sharePointSiteIds', 'fileOpenMode',
+      ]);
+      const isFlat = Object.keys(body).some((k) => FLAT_KEYS.has(k));
+      const partial = isFlat ? fromClientConfig(body) : (body as Partial<AppConfig>);
       const updated = updateConfig(partial);
       res.json(toClientConfig(updated));
     } catch (err) {

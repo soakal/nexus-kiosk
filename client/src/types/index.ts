@@ -101,7 +101,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   refreshInterval: 300,
   theme: 'dark',
   timezone: 'America/New_York',
-  showWeekends: true,
+  showWeekends: false,
   startHour: 7,
   endHour: 21,
   showAgendaRail: true,

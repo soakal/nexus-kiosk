@@ -12,10 +12,21 @@ import { CalendarEvent } from '../types/index';
 
 const locales = { 'en-US': enUS };
 
-const localizer = dateFnsLocalizer({
+// When weekends are hidden we start the week on Monday (weekStartsOn: 1) so
+// the calendar anchors correctly and Saturday/Sunday columns don't appear at
+// the edges.  Both localizers are pre-built to avoid re-construction on render.
+const localizerSun = dateFnsLocalizer({
   format,
   parse,
   startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }),
+  getDay,
+  locales,
+});
+
+const localizerMon = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
   getDay,
   locales,
 });
@@ -89,6 +100,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       },
     };
   };
+
+  // Mark Sat (0=Sun,6=Sat in getDay) and Sun columns so the CSS rule below
+  // can collapse them when showWeekends is false.
+  const dayPropGetter = useMemo(
+    () => (date: Date) => {
+      const day = date.getDay(); // 0 = Sunday, 6 = Saturday
+      if (!showWeekends && (day === 0 || day === 6)) {
+        return { className: 'rbc-hidden-weekend' };
+      }
+      return {};
+    },
+    [showWeekends]
+  );
+
+  const localizer = showWeekends ? localizerSun : localizerMon;
 
   const viewMap: Record<'day' | 'week' | 'month', 'day' | 'week' | 'month'> = {
     day: 'day',
@@ -190,6 +216,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .nexus-calendar-wrapper .rbc-header + .rbc-header {
           border-color: rgba(255,255,255,0.08);
         }
+        /* Hide Saturday and Sunday columns when showWeekends=false */
+        .nexus-calendar-wrapper .rbc-header.rbc-hidden-weekend,
+        .nexus-calendar-wrapper .rbc-day-bg.rbc-hidden-weekend,
+        .nexus-calendar-wrapper .rbc-day-slot.rbc-hidden-weekend {
+          display: none;
+        }
       `}</style>
       <Calendar
         localizer={localizer}
@@ -198,6 +230,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         onView={() => {}}
         defaultView={viewMap[displayMode]}
         eventPropGetter={eventPropGetter}
+        dayPropGetter={dayPropGetter}
         min={minTime}
         max={maxTime}
         showCurrentTimeIndicator

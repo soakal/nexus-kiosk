@@ -76,9 +76,9 @@ export function JobListView({ tab }: Props) {
     tabFiltered = jobs.filter((j) => norm(j.pm) !== spare)
   }
 
-  // Step 2: user filter
+  // Step 2: user filter (spare-parts tab always shows all spare jobs unfiltered)
   let filtered: BoardJob[]
-  if (!activeUser || isSuper || showAll || activeUser.role === 'manual') {
+  if (tab === 'spare-parts' || !activeUser || isSuper || showAll || activeUser.role === 'manual') {
     filtered = tabFiltered
   } else if (activeUser.role === 'pm') {
     filtered = tabFiltered.filter((j) => norm(j.pm) === norm(activeUser.name))
@@ -106,7 +106,7 @@ export function JobListView({ tab }: Props) {
     return a.effectiveShipDate.localeCompare(b.effectiveShipDate)
   })
 
-  const canToggle = !!activeUser && !isSuper && activeUser.role !== 'manual'
+  const canToggle = tab !== 'spare-parts' && !!activeUser && !isSuper && activeUser.role !== 'manual'
 
   return (
     <div>

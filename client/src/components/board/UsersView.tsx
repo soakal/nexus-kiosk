@@ -45,6 +45,26 @@ export default function UsersView() {
 
   const [savedFlash, setSavedFlash] = useState(false)
 
+  // ── super user state ─────────────────────────────────────────────────────
+  const [superUserInput, setSuperUserInput] = useState(config.superUser)
+  const [superSavedFlash, setSuperSavedFlash] = useState(false)
+
+  useEffect(() => {
+    setSuperUserInput(config.superUser)
+  }, [config.superUser])
+
+  const handleSaveSuperUser = () => {
+    updateConfig.mutate(
+      { superUser: superUserInput },
+      {
+        onSuccess: () => {
+          setSuperSavedFlash(true)
+          setTimeout(() => setSuperSavedFlash(false), 2000)
+        },
+      }
+    )
+  }
+
   // ── spare carrier state ───────────────────────────────────────────────────
   const [spareCarrierInput, setSpareCarrierInput] = useState(config.spareCarrier)
   const [spareSavedFlash, setSpareSavedFlash] = useState(false)
@@ -177,7 +197,38 @@ export default function UsersView() {
         )}
       </div>
 
-      {/* ── Section 3: Spare Parts PM ────────────────────────────────────────── */}
+      {/* ── Section 3: Super User ───────────────────────────────────────────── */}
+      <div className="py-4 px-1">
+        <h3 className="text-slate-300 font-semibold text-sm mb-1">Super User</h3>
+        <p className="text-slate-500 text-xs mb-3">Super user sees all jobs in both tabs with no filtering. Set to "None" to disable.</p>
+
+        <div className="flex gap-2 mb-1">
+          <select
+            value={superUserInput}
+            onChange={(e) => setSuperUserInput(e.target.value)}
+            className="flex-1 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 px-3 py-1.5 focus:outline-none focus:border-blue-500/50 cursor-pointer"
+          >
+            <option value="">— None —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.name}>
+                {u.name}{u.name === config.superUser ? ' ✓' : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleSaveSuperUser}
+            disabled={updateConfig.isPending}
+            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs px-3 py-1.5 rounded transition-colors"
+          >
+            Save
+          </button>
+        </div>
+        {superSavedFlash && (
+          <span className="text-green-400 text-xs">Saved!</span>
+        )}
+      </div>
+
+      {/* ── Section 4: Spare Parts PM ────────────────────────────────────────── */}
       <div className="py-4 px-1">
         <h3 className="text-slate-300 font-semibold text-sm mb-1">Spare Parts PM</h3>
         <p className="text-slate-500 text-xs mb-3">Jobs assigned to this PM go to the Spare Parts tab.</p>
@@ -208,7 +259,7 @@ export default function UsersView() {
         )}
       </div>
 
-      {/* ── Section 4: Tab Status Colors ──────────────────────────────────────── */}
+      {/* ── Section 5: Tab Status Colors ──────────────────────────────────────── */}
       <div className="py-4 px-1">
         <h3 className="text-slate-300 font-semibold text-sm mb-3">Tab Status Colors</h3>
 

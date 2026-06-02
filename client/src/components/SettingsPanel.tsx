@@ -1,13 +1,13 @@
 ﻿import React, { useState, useEffect, useRef } from "react";
-import { AppConfig, CalendarItem } from "../types/index";
+import { AppConfig } from "../types/index";
 import CalendarSelector from "./CalendarSelector";
+import { useCalendars } from "../hooks/useCalendars";
+import { useUpdateConfig } from "../hooks/useConfig";
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   config: AppConfig;
-  calendars: CalendarItem[];
-  onSave: (partial: Partial<AppConfig>) => Promise<void>;
 }
 
 type SectionKey = "calendars" | "display" | "widgets" | "time" | "location" | "files";
@@ -63,7 +63,10 @@ const TextField: React.FC<{ label: string; value: string; onChange: (v: string) 
   </div>
 );
 
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config, calendars, onSave }) => {
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config }) => {
+  const { data: calendars = [] } = useCalendars(isOpen);
+  const updateConfig = useUpdateConfig();
+  const onSave = async (partial: Partial<AppConfig>) => { await updateConfig.mutateAsync(partial); };
   const [local, setLocal] = useState<AppConfig>({ ...config });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

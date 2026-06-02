@@ -7,7 +7,10 @@ import { logger } from '../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const TOKEN_FILE_PATH = path.resolve(__dirname, '..', '..', '..', 'data', 'tokens.json');
+// Resolve to server/data (matches boardService.ts). Two '..' segments:
+// dev  src/auth -> src -> server -> server/data
+// prod dist/auth -> dist -> server -> server/data
+const TOKEN_FILE_PATH = path.resolve(__dirname, '..', '..', 'data', 'tokens.json');
 
 export interface TokenData {
   refreshToken: string;
@@ -56,7 +59,11 @@ export function saveTokens(data: TokenData): void {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(encrypted), 'utf8');
+  // Atomic write: temp file + rename so a crash mid-write can't corrupt the
+  // token file (which would lock the kiosk out of auth).
+  const tmpPath = TOKEN_FILE_PATH + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(encrypted), 'utf8');
+  fs.renameSync(tmpPath, TOKEN_FILE_PATH);
   logger.info('Tokens saved to disk');
 }
 

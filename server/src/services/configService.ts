@@ -6,9 +6,11 @@ import { logger } from '../utils/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Resolve to server/data (matches boardService.ts). Two '..' segments:
+// dev  src/services -> src -> server -> server/data
+// prod dist/services -> dist -> server -> server/data
 const CONFIG_FILE_PATH = path.resolve(
   __dirname,
-  '..',
   '..',
   '..',
   'data',
@@ -145,7 +147,10 @@ export function updateConfig(partial: Partial<AppConfig>): AppConfig {
   cachedConfig = deepMerge(current, partial);
 
   ensureDataDir();
-  fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(cachedConfig, null, 2), 'utf8');
+  // Atomic write: temp file + rename so a crash mid-write can't corrupt config.
+  const tmpPath = CONFIG_FILE_PATH + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(cachedConfig, null, 2), 'utf8');
+  fs.renameSync(tmpPath, CONFIG_FILE_PATH);
   logger.info('Config updated and saved');
 
   return cachedConfig;

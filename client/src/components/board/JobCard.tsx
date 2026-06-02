@@ -71,11 +71,15 @@ export function JobCard({ job, activeUser, config }: Props) {
     if (dateDirty) {
       setJobShipDate.mutate({ jobNumber: job.jobNumber, shipDateOverride: pendingShipDate, actor: activeUser })
     }
+    // Clear presence immediately rather than waiting for the next effect-cleanup tick
+    if (userId) releasePresence(job.jobNumber, userId)
   }
 
   const handleCancel = () => {
     setPendingStatus(job.status)
     setPendingShipDate(job.effectiveShipDate)
+    // Clear presence immediately so the lock releases the moment the user cancels
+    if (userId) releasePresence(job.jobNumber, userId)
   }
 
   const handleAddNote = (text: string) => {
@@ -126,6 +130,7 @@ export function JobCard({ job, activeUser, config }: Props) {
           status={pendingStatus}
           disabled={!activeUser}
           onStatusChange={setPendingStatus}
+          statusColors={config.statusColors}
         />
         <span
           className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"

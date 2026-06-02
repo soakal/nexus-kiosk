@@ -1,7 +1,7 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig, useBoardUsers } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
-import { tabColor } from './boardColors'
+import { tabColor, isSpareJob } from './boardColors'
 
 export function BoardHeader() {
   const { jobs } = useBoardJobs()
@@ -9,9 +9,8 @@ export function BoardHeader() {
   const { users } = useBoardUsers()
   const { activeUser, setActiveUser } = useAppStore()
 
-  const spare = (config.spareCarrier ?? '').trim().toLowerCase()
-  const projectJobs = jobs.filter((j) => (j.pm ?? '').trim().toLowerCase() !== spare)
-  const spareJobs = jobs.filter((j) => (j.pm ?? '').trim().toLowerCase() === spare)
+  const projectJobs = jobs.filter((j) => !isSpareJob(j, config))
+  const spareJobs = jobs.filter((j) => isSpareJob(j, config))
 
   const projectColor = tabColor(projectJobs, config)
   const spareColor = tabColor(spareJobs, config)

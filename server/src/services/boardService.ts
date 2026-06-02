@@ -51,15 +51,48 @@ function readJsonFile<T>(filePath: string): T | null {
 
 function writeJsonFile(filePath: string, data: unknown): void {
   ensureDataDir()
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
+  // Atomic write: write to a temp file then rename onto the target. rename is
+  // atomic on the same filesystem, so a crash/power-loss mid-write can never
+  // leave a truncated/invalid JSON file.
+  const tmpPath = filePath + '.tmp'
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8')
+  fs.renameSync(tmpPath, filePath)
+}
+
+// ---------------------------------------------------------------------------
+// Serialize board-state read-modify-write mutations so two concurrent
+// status/note/ship-date writes can't each read the old state and clobber each
+// other (last-writer-wins data loss). All mutators run through this queue.
+// ---------------------------------------------------------------------------
+let boardStateMutationQueue: Promise<unknown> = Promise.resolve()
+
+function runExclusive<T>(fn: () => T): Promise<T> {
+  const run = boardStateMutationQueue.then(() => fn())
+  // Keep the chain alive even if fn throws, so one failure doesn't wedge it.
+  boardStateMutationQueue = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
 }
 
 // ---------------------------------------------------------------------------
 // Date parsing helper
 // ---------------------------------------------------------------------------
+// Format a Date using its LOCAL components, not toISOString(). Excel parses
+// text/Date cells as local midnight; toISOString() converts to UTC, which rolls
+// the date back a day in every negative-UTC-offset timezone (all of N. America),
+// silently storing ship dates off-by-one. Build yyyy-mm-dd from local parts.
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function parseDateValue(value: unknown): string | null {
   if (value == null || value === '') return null
-  if (value instanceof Date) return value.toISOString().slice(0, 10)
+  if (value instanceof Date) return formatLocalDate(value)
   if (typeof value === 'string') {
     const trimmed = value.trim()
     if (trimmed === '') return null
@@ -67,7 +100,7 @@ function parseDateValue(value: unknown): string | null {
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
     // Try parsing as a generic date string
     const d = new Date(trimmed)
-    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+    if (!isNaN(d.getTime())) return formatLocalDate(d)
     return trimmed
   }
   if (typeof value === 'number') {
@@ -167,9 +200,21 @@ export function loadJobsFile(): JobsFile | null {
 export function saveJobsFile(jobs: Job[], sourceFile: string): void {
   const existing = loadJobsFile()
   const existingNumbers = new Set(existing?.jobs.map((j) => j.jobNumber) ?? [])
-  const newJobNumbers = jobs
+
+  const currentNumbers = new Set(jobs.map((j) => j.jobNumber))
+
+  // isNew must survive re-imports. A job flagged new in a prior import that is
+  // still present (and never acknowledged) must STAY new — recomputing "not in
+  // the previous file" alone would wrongly clear the badge on the next import.
+  // So: union (jobs not seen in the previous import) with (prior newJobNumbers
+  // that are still present in this import).
+  const carriedOver = (existing?.newJobNumbers ?? []).filter((n) =>
+    currentNumbers.has(n)
+  )
+  const freshlyNew = jobs
     .map((j) => j.jobNumber)
     .filter((n) => !existingNumbers.has(n))
+  const newJobNumbers = Array.from(new Set([...carriedOver, ...freshlyNew]))
 
   const data: JobsFile = {
     jobs,
@@ -178,6 +223,23 @@ export function saveJobsFile(jobs: Job[], sourceFile: string): void {
     newJobNumbers,
   }
   writeJsonFile(JOBS_FILE, data)
+
+  // Prune orphaned board-state: notes/status/ship-date overrides for jobs no
+  // longer present in the spreadsheet would otherwise accumulate forever and,
+  // worse, be silently inherited if a job number is later reused.
+  pruneOrphanedBoardState(currentNumbers)
+}
+
+function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
+  const state = getBoardStateFile()
+  let changed = false
+  for (const jobNumber of Object.keys(state)) {
+    if (!validJobNumbers.has(jobNumber)) {
+      delete state[jobNumber]
+      changed = true
+    }
+  }
+  if (changed) writeBoardState(state)
 }
 
 // ---------------------------------------------------------------------------
@@ -283,83 +345,91 @@ export function getJobState(jobNumber: string): JobStateEntry {
   )
 }
 
-export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor): void {
-  const state = getBoardStateFile()
-  const existing = state[jobNumber] ?? {
-    status: 'none' as JobStatus,
-    shipDateOverride: null,
-    notes: [],
-    updatedAt: '',
-  }
-  state[jobNumber] = {
-    ...existing,
-    status,
-    updatedAt: new Date().toISOString(),
-    updatedBy: actor?.name,
-  }
-  writeBoardState(state)
+export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor): Promise<void> {
+  return runExclusive(() => {
+    const state = getBoardStateFile()
+    const existing = state[jobNumber] ?? {
+      status: 'none' as JobStatus,
+      shipDateOverride: null,
+      notes: [],
+      updatedAt: '',
+    }
+    state[jobNumber] = {
+      ...existing,
+      status,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.name,
+    }
+    writeBoardState(state)
+  })
 }
 
-export function setShipDateOverride(jobNumber: string, date: string | null, actor?: Actor): void {
-  const state = getBoardStateFile()
-  const existing = state[jobNumber] ?? {
-    status: 'none' as JobStatus,
-    shipDateOverride: null,
-    notes: [],
-    updatedAt: '',
-  }
-  state[jobNumber] = {
-    ...existing,
-    shipDateOverride: date,
-    updatedAt: new Date().toISOString(),
-    updatedBy: actor?.name,
-  }
-  writeBoardState(state)
+export function setShipDateOverride(jobNumber: string, date: string | null, actor?: Actor): Promise<void> {
+  return runExclusive(() => {
+    const state = getBoardStateFile()
+    const existing = state[jobNumber] ?? {
+      status: 'none' as JobStatus,
+      shipDateOverride: null,
+      notes: [],
+      updatedAt: '',
+    }
+    state[jobNumber] = {
+      ...existing,
+      shipDateOverride: date,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.name,
+    }
+    writeBoardState(state)
+  })
 }
 
-export function addNote(jobNumber: string, text: string, actor: Actor): JobNote {
-  const state = getBoardStateFile()
-  const existing = state[jobNumber] ?? {
-    status: 'none' as JobStatus,
-    shipDateOverride: null,
-    notes: [],
-    updatedAt: '',
-  }
+export function addNote(jobNumber: string, text: string, actor: Actor): Promise<JobNote> {
+  return runExclusive(() => {
+    const state = getBoardStateFile()
+    const existing = state[jobNumber] ?? {
+      status: 'none' as JobStatus,
+      shipDateOverride: null,
+      notes: [],
+      updatedAt: '',
+    }
 
-  const note: JobNote = {
-    id: generateNoteId(),
-    authorId: actor.id,
-    authorName: actor.name,
-    text,
-    createdAt: new Date().toISOString(),
-  }
+    const note: JobNote = {
+      id: generateNoteId(),
+      authorId: actor.id,
+      authorName: actor.name,
+      text,
+      createdAt: new Date().toISOString(),
+    }
 
-  state[jobNumber] = {
-    ...existing,
-    notes: [...existing.notes, note],
-    updatedAt: new Date().toISOString(),
-  }
-  writeBoardState(state)
-  return note
+    state[jobNumber] = {
+      ...existing,
+      notes: [...existing.notes, note],
+      updatedAt: new Date().toISOString(),
+    }
+    writeBoardState(state)
+    return note
+  })
 }
 
-export function deleteNote(jobNumber: string, noteId: string, actor: Actor): { ok: boolean; error?: string } {
-  const state = getBoardStateFile()
-  const existing = state[jobNumber]
-  if (!existing) return { ok: true }
+export function deleteNote(jobNumber: string, noteId: string, actor: Actor): Promise<{ ok: boolean; error?: string }> {
+  return runExclusive(() => {
+    const state = getBoardStateFile()
+    const existing = state[jobNumber]
+    if (!existing) return { ok: true }
 
-  const note = existing.notes.find((n) => n.id === noteId)
-  if (note && note.authorId !== actor.id) {
-    return { ok: false, error: 'Only the author can delete this note' }
-  }
+    const note = existing.notes.find((n) => n.id === noteId)
+    if (note && note.authorId !== actor.id) {
+      return { ok: false, error: 'Only the author can delete this note' }
+    }
 
-  state[jobNumber] = {
-    ...existing,
-    notes: existing.notes.filter((n) => n.id !== noteId),
-    updatedAt: new Date().toISOString(),
-  }
-  writeBoardState(state)
-  return { ok: true }
+    state[jobNumber] = {
+      ...existing,
+      notes: existing.notes.filter((n) => n.id !== noteId),
+      updatedAt: new Date().toISOString(),
+    }
+    writeBoardState(state)
+    return { ok: true }
+  })
 }
 
 // ---------------------------------------------------------------------------

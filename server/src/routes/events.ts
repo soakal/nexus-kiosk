@@ -94,14 +94,16 @@ eventsRouter.get(
 
         for (const job of boardJobs) {
           if (!job.effectiveShipDate) continue;
-          const pmDisplay = job.pm.includes('@') ? job.pm.split('@')[0] : job.pm;
+          const pm = job.pm ?? '';
+          const pmDisplay = pm.includes('@') ? pm.split('@')[0] : pm;
+          const customer = job.customer ?? '';
           normalized.push({
             id: `board-ship-${job.jobNumber}`,
-            subject: `#${job.jobNumber} — ${job.customer} · ${pmDisplay}`,
+            subject: `#${job.jobNumber} — ${customer} · ${pmDisplay}`,
             startDateTime: `${job.effectiveShipDate}T00:00:00`,
             endDateTime: `${job.effectiveShipDate}T23:59:59`,
             isAllDay: true,
-            bodyPreview: `${job.customer} · ${statusLabels[job.status] ?? job.status}`,
+            bodyPreview: `${customer} · ${statusLabels[job.status] ?? job.status}`,
             calendarId: 'board-jobs',
             calendarName: 'Ship Dates',
             calendarColor: statusColors[job.status] ?? '#475569',

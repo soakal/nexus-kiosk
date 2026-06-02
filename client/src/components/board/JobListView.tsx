@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
+import { isSpareJob } from './boardColors'
 import { BoardJob } from '../../types/board'
 
 interface Props {
@@ -141,19 +142,12 @@ export function JobListView({ tab }: Props) {
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
   const pmUsers = users.filter((u) => u.role === 'pm')
 
-  // A job is a spare-parts job if its PM matches the spare carrier OR its job number starts with 'sp'
-  const isSpareJob = (j: BoardJob) =>
-    norm(j.pm) === spare || j.jobNumber.toLowerCase().startsWith('sp')
-
-  // Step 1: tab filter — spare-parts jobs never appear in Projects (even for super user)
-  let tabFiltered: BoardJob[]
-  if (tab === 'spare-parts') {
-    tabFiltered = jobs.filter(isSpareJob)
-  } else if (isSuper) {
-    tabFiltered = jobs.filter((j) => !isSpareJob(j))
-  } else {
-    tabFiltered = jobs.filter((j) => !isSpareJob(j))
-  }
+  // Step 1: tab filter — spare-parts jobs never appear in Projects (even for super user).
+  // Uses the shared isSpareJob(job, config) helper so list filtering matches BoardHeader.
+  const tabFiltered: BoardJob[] =
+    tab === 'spare-parts'
+      ? jobs.filter((j) => isSpareJob(j, config))
+      : jobs.filter((j) => !isSpareJob(j, config))
 
   // Step 2: user filter (spare-parts tab always shows all spare jobs unfiltered)
   let filtered: BoardJob[]

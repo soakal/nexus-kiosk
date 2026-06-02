@@ -68,6 +68,45 @@ const upload = multer({
 })
 
 // ---------------------------------------------------------------------------
+// Validate a client-supplied jobs array (the no-file /import path has no auth,
+// so any LAN client can POST arbitrary objects). Coerce known fields to safe
+// shapes and reject rows missing a usable jobNumber.
+// ---------------------------------------------------------------------------
+function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[] } {
+  const jobs: Job[] = []
+  const errors: string[] = []
+
+  const toStr = (v: unknown): string =>
+    typeof v === 'string' ? v : v == null ? '' : String(v)
+  const toDateOrNull = (v: unknown): string | null =>
+    typeof v === 'string' && v.trim() !== '' ? v : null
+
+  raw.forEach((item, i) => {
+    if (typeof item !== 'object' || item === null) {
+      errors.push(`Row ${i}: not an object`)
+      return
+    }
+    const o = item as Record<string, unknown>
+    const jobNumber = toStr(o.jobNumber).trim()
+    if (!jobNumber) {
+      errors.push(`Row ${i}: missing jobNumber`)
+      return
+    }
+    jobs.push({
+      jobNumber,
+      pm: toStr(o.pm),
+      customer: toStr(o.customer),
+      materialsManager: toStr(o.materialsManager),
+      pabsComplete: toDateOrNull(o.pabsComplete),
+      shipToPm: toDateOrNull(o.shipToPm),
+      shipToCustomer: toDateOrNull(o.shipToCustomer),
+    })
+  })
+
+  return { jobs, errors }
+}
+
+// ---------------------------------------------------------------------------
 // POST /import
 // ---------------------------------------------------------------------------
 boardRouter.post('/import', upload.single('file'), async (req: Request, res: Response) => {
@@ -82,7 +121,12 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       warnings = result.warnings
       sourceFile = req.file.originalname
     } else if (Array.isArray(req.body.jobs)) {
-      jobs = req.body.jobs as Job[]
+      const { jobs: validated, errors } = validateJobsArray(req.body.jobs)
+      if (errors.length > 0) {
+        res.status(400).json({ error: 'Invalid jobs', rows: errors })
+        return
+      }
+      jobs = validated
       sourceFile = 'manual-import'
     } else {
       res.status(400).json({ error: 'No file or jobs array provided' })
@@ -157,11 +201,15 @@ boardRouter.patch('/jobs/:jobNumber/status', async (req: Request, res: Response)
       return
     }
 
-    setJobStatus(req.params.jobNumber, status as (typeof STATUS_ORDER)[number], actor)
+    if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
 
-    const jobs = getMergedJobs()
-    const job = jobs.find((j) => j.jobNumber === req.params.jobNumber)
-    res.json(job ?? { error: 'Job not found' })
+    await setJobStatus(req.params.jobNumber, status as (typeof STATUS_ORDER)[number], actor)
+
+    const job = getMergedJobs().find((j) => j.jobNumber === req.params.jobNumber)
+    res.json(job)
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }
@@ -174,10 +222,15 @@ boardRouter.patch('/jobs/:jobNumber/ship-date', async (req: Request, res: Respon
   try {
     const { shipDateOverride, actor } = req.body as { shipDateOverride?: string | null; actor?: Actor }
 
-    setShipDateOverride(req.params.jobNumber, shipDateOverride ?? null, actor)
+    if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
 
-    const jobs = getMergedJobs()
-    res.json(jobs.find((j) => j.jobNumber === req.params.jobNumber))
+    await setShipDateOverride(req.params.jobNumber, shipDateOverride ?? null, actor)
+
+    const job = getMergedJobs().find((j) => j.jobNumber === req.params.jobNumber)
+    res.json(job)
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }
@@ -195,7 +248,12 @@ boardRouter.post('/jobs/:jobNumber/notes', async (req: Request, res: Response) =
       return
     }
 
-    const note = addNote(req.params.jobNumber, text, actor)
+    if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
+
+    const note = await addNote(req.params.jobNumber, text, actor)
     res.status(201).json(note)
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
@@ -212,7 +270,7 @@ boardRouter.delete('/jobs/:jobNumber/notes/:noteId', async (req: Request, res: R
       res.status(400).json({ error: 'actor required' })
       return
     }
-    const result = deleteNote(req.params.jobNumber, req.params.noteId, actor)
+    const result = await deleteNote(req.params.jobNumber, req.params.noteId, actor)
     if (!result.ok) {
       res.status(403).json({ error: result.error })
       return

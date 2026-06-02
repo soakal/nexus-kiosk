@@ -11,6 +11,7 @@ server/data/jobs.json
 server/data/board-state.json
 server/data/board-config.json
 server/logs/
+/logs/
 *.log
 client/dist/
 .DS_Store

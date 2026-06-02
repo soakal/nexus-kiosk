@@ -5,7 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from './utils/logger.js';
-import { initializeTokens, startRefreshCron } from './auth/tokenRefresher.js';
+import { initializeTokens, startRefreshCron, isAuthenticated, needsReauthentication } from './auth/tokenRefresher.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { calendarsRouter } from './routes/calendars.js';
@@ -17,6 +17,36 @@ import { boardRouter } from './routes/board.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Fail fast at boot if required environment is missing, instead of throwing
+ * deep inside a request handler or cron job later.
+ */
+function validateEnv(): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  const azureDisabled = process.env.DISABLE_AZURE === 'true';
+  const missing: string[] = [];
+
+  if (!azureDisabled) {
+    if (!process.env.ENCRYPTION_SECRET) missing.push('ENCRYPTION_SECRET');
+    if (!process.env.AZURE_TENANT_ID) missing.push('AZURE_TENANT_ID');
+    if (!process.env.AZURE_CLIENT_ID) missing.push('AZURE_CLIENT_ID');
+  }
+
+  if (isProd && !process.env.CORS_ORIGIN) {
+    missing.push('CORS_ORIGIN (required in production)');
+  }
+
+  if (missing.length > 0) {
+    logger.error(
+      `Missing required environment variable(s): ${missing.join(', ')}. ` +
+        `Refusing to start. Set them in .env (see .env.example).`
+    );
+    process.exit(1);
+  }
+}
+
+validateEnv();
+
 const app = express();
 
 // Security & parsing middleware
@@ -26,9 +56,15 @@ app.use(
   })
 );
 
+// In production CORS_ORIGIN is required (enforced by validateEnv); never fall
+// back to '*' there. Outside production '*' is allowed for local dev convenience.
+const corsOrigin =
+  process.env.CORS_ORIGIN ??
+  (process.env.NODE_ENV === 'production' ? false : '*');
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ?? '*',
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
@@ -47,11 +83,27 @@ app.use('/api/board', boardRouter);
 
 // Simple health route (outside configRouter to avoid auth dependency)
 app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+  // Report readiness, not just liveness, so external monitoring can detect the
+  // silent auth-failure state (token refresh died, kiosk showing no live data).
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    authenticated: isAuthenticated(),
+    needsReauth: needsReauthentication(),
+    testMode: process.env.DISABLE_AZURE === 'true',
+  });
 });
 
 // Static file serving — active whenever client/dist exists (production or explicit NODE_ENV)
 import { existsSync } from 'fs';
+
+// Unknown /api/* routes must return JSON 404, never the SPA index.html or a
+// redirect to Vite — otherwise the client tries to JSON.parse HTML.
+app.use('/api', (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
 const clientDistPath = path.resolve(__dirname, '..', '..', 'client', 'dist');
 if (existsSync(path.join(clientDistPath, 'index.html'))) {
   app.use(express.static(clientDistPath));

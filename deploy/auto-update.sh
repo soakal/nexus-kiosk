@@ -3,7 +3,24 @@ set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/home/pi/nexus-kiosk}"
 
-cd "$INSTALL_DIR"
+# Fail gracefully (skip this unattended run) if there is no checkout to update.
+[ -d "$INSTALL_DIR/.git" ] || { echo "[$(date '+%F %T')] No git checkout at $INSTALL_DIR — auto-update skipped" >&2; exit 0; }
+cd "$INSTALL_DIR" || { echo "[$(date '+%F %T')] cannot cd to $INSTALL_DIR — auto-update skipped" >&2; exit 1; }
+
+# Connectivity pre-check. When offline, skip this run (exit 0) rather than
+# failing destructively — the timer will try again next week. Finite timeouts
+# (curl --connect-timeout/--max-time) avoid hanging at 03:30.
+check_network_connectivity() {
+    local h
+    for h in github.com registry.npmjs.org; do
+        if ! curl -fsS --connect-timeout 5 --max-time 10 -o /dev/null "https://$h" 2>/dev/null \
+           && ! curl -fsSI --connect-timeout 5 --max-time 10 -o /dev/null "https://$h" 2>/dev/null; then
+            echo "[$(date '+%F %T')] $h unreachable — skipping this auto-update run" >&2
+            exit 0
+        fi
+    done
+}
+check_network_connectivity
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
@@ -20,8 +37,14 @@ cp -f server/data/*.json "$BACKUP_DIR/" 2>/dev/null || true
 cp -f data/*.json "$BACKUP_DIR/" 2>/dev/null || true
 echo "Runtime state backed up to $BACKUP_DIR"
 
-git fetch origin "$BRANCH"
-git reset --hard "origin/$BRANCH"
+# Finite git timeout so a stalled transfer aborts instead of hanging at 03:30.
+GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=20 \
+    git fetch origin "$BRANCH" \
+    || { echo "[$(date '+%F %T')] git fetch failed — skipping this auto-update run" >&2; exit 0; }
+git rev-parse --verify "origin/$BRANCH" >/dev/null 2>&1 \
+    || { echo "[$(date '+%F %T')] origin/$BRANCH not available after fetch — skipping" >&2; exit 0; }
+git reset --hard "origin/$BRANCH" \
+    || { echo "[$(date '+%F %T')] git reset failed — skipping this auto-update run" >&2; exit 1; }
 
 AFTER=$(git rev-parse HEAD)
 
@@ -33,11 +56,14 @@ fi
 echo "Changes found: $BEFORE -> $AFTER"
 
 # Wipe node_modules to defend against stale/cross-platform copies (matches installer).
+# Connectivity was verified up front, so npm install should be reachable.
 rm -rf node_modules server/node_modules client/node_modules
-npm install
+npm install \
+    || { echo "[$(date '+%F %T')] npm install failed — node_modules wiped; backend may be down until next run/manual fix" >&2; exit 1; }
 # Ensure every workspace .bin shim is executable (tsc, vite, tsx, etc.).
 find "$INSTALL_DIR" -path "*/node_modules/.bin/*" -exec chmod +x {} \; 2>/dev/null || true
-npm run build
+npm run build \
+    || { echo "[$(date '+%F %T')] npm run build failed — see output above" >&2; exit 1; }
 
 # Re-install service file so any changes (e.g. NODE_ENV, paths) take effect
 KIOSK_USER="${KIOSK_USER:-$(stat -c '%U' "$INSTALL_DIR" 2>/dev/null || echo pi)}"

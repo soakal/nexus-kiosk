@@ -4,6 +4,10 @@ import { logger } from '../utils/logger.js';
 
 let currentAccessToken: string | null = null;
 let isTestMode = process.env.DISABLE_AZURE === 'true';
+// Set when a refresh fails permanently (invalid_grant) — the operator must
+// re-run the device-code flow. Surfaced via /health so headless kiosks and
+// external monitoring can detect the silent auth-failure state.
+let needsReauth = false;
 
 export function getCurrentAccessToken(): string | null {
   return currentAccessToken;
@@ -13,15 +17,60 @@ export function isAuthenticated(): boolean {
   return currentAccessToken !== null || isTestMode;
 }
 
+export function needsReauthentication(): boolean {
+  return needsReauth;
+}
+
 export function setUnauthenticated(): void {
   currentAccessToken = null;
   logger.warn('Access token cleared — marked unauthenticated');
+}
+
+/**
+ * Refresh with bounded exponential backoff on TRANSIENT failures only.
+ * Permanent failures (invalid_grant) throw immediately so the caller can
+ * flag re-auth instead of pointlessly retrying a dead token.
+ */
+async function refreshWithRetry(
+  rt: string,
+  maxAttempts = 4
+): Promise<RefreshResponse> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await refreshViaEndpoint(rt);
+    } catch (err) {
+      lastErr = err;
+      if (err instanceof RefreshError && err.permanent) throw err;
+      if (attempt < maxAttempts) {
+        const delayMs = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+        logger.warn(
+          `Token refresh transient failure (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms`,
+          { error: (err as Error).message }
+        );
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 interface RefreshResponse {
   accessToken: string;
   refreshToken: string;
   expiresOn: number;
+}
+
+/**
+ * Distinguishes a permanent auth failure (refresh token revoked/expired/MFA —
+ * `invalid_grant`) from a transient one (network error, Azure 5xx, throttling).
+ * Permanent failures require human re-auth; transient ones should be retried.
+ */
+class RefreshError extends Error {
+  constructor(message: string, public permanent: boolean) {
+    super(message);
+    this.name = 'RefreshError';
+  }
 }
 
 async function refreshViaEndpoint(rt: string): Promise<RefreshResponse> {
@@ -41,16 +90,29 @@ async function refreshViaEndpoint(rt: string): Promise<RefreshResponse> {
       'Calendars.Read User.Read offline_access Files.Read.All Sites.Read.All',
   });
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+  } catch (err) {
+    // Network-level failure (DNS, connection reset, Azure unreachable) — transient.
+    throw new RefreshError(
+      `Token refresh network error: ${(err as Error).message}`,
+      false
+    );
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
-      `Token refresh failed: ${response.status} ${response.statusText} — ${errorText}`
+    // 4xx (esp. invalid_grant) = permanent: token revoked/expired/MFA, needs
+    // human re-auth. 5xx / 429 = transient Azure-side error, safe to retry.
+    const permanent = response.status >= 400 && response.status < 500;
+    throw new RefreshError(
+      `Token refresh failed: ${response.status} ${response.statusText} — ${errorText}`,
+      permanent
     );
   }
 
@@ -92,8 +154,9 @@ export async function initializeTokens(): Promise<boolean> {
   }
 
   try {
-    const refreshed = await refreshViaEndpoint(stored.refreshToken);
+    const refreshed = await refreshWithRetry(stored.refreshToken);
     currentAccessToken = refreshed.accessToken;
+    needsReauth = false;
 
     saveTokens({
       accessToken: refreshed.accessToken,
@@ -104,7 +167,16 @@ export async function initializeTokens(): Promise<boolean> {
     logger.info('Tokens initialized and refreshed successfully');
     return true;
   } catch (err) {
-    logger.error('Failed to refresh stored tokens', { error: err });
+    if (err instanceof RefreshError && err.permanent) {
+      needsReauth = true;
+      logger.error(
+        'Stored refresh token is no longer valid (revoked/expired/MFA). ' +
+          'Re-authentication required via /api/auth/start.',
+        { error: err.message }
+      );
+    } else {
+      logger.error('Failed to refresh stored tokens (transient)', { error: err });
+    }
     return false;
   }
 }
@@ -126,8 +198,9 @@ export function startRefreshCron(): void {
     }
 
     try {
-      const refreshed = await refreshViaEndpoint(stored.refreshToken);
+      const refreshed = await refreshWithRetry(stored.refreshToken);
       currentAccessToken = refreshed.accessToken;
+      needsReauth = false;
 
       saveTokens({
         accessToken: refreshed.accessToken,
@@ -137,7 +210,18 @@ export function startRefreshCron(): void {
 
       logger.info('Cron: access token refreshed successfully');
     } catch (err) {
-      logger.error('Cron: token refresh failed', { error: err });
+      if (err instanceof RefreshError && err.permanent) {
+        needsReauth = true;
+        logger.error(
+          'Cron: refresh token permanently invalid — re-authentication required ' +
+            'via /api/auth/start (kiosk will show no live data until then).',
+          { error: err.message }
+        );
+      } else {
+        logger.error('Cron: token refresh failed after retries (transient)', {
+          error: err,
+        });
+      }
       setUnauthenticated();
     }
   });

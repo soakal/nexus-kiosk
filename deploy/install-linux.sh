@@ -74,6 +74,31 @@ default_user() {
     fi
 }
 
+# Verify the hosts we depend on are reachable before any network operation.
+# Exits the script with a clear message instead of hanging on git/npm/apt or
+# leaving a half-broken install. Pass "node" as the first arg to also require
+# deb.nodesource.com (only needed when Node.js must be installed).
+check_network_connectivity() {
+    local need_node="${1:-}"
+    local hosts=("github.com" "raw.githubusercontent.com" "registry.npmjs.org")
+    if [ "$need_node" = "node" ]; then
+        hosts+=("deb.nodesource.com")
+    fi
+
+    local h fail=0
+    step "Checking network connectivity..."
+    for h in "${hosts[@]}"; do
+        if curl -fsS --connect-timeout 5 --max-time 10 -o /dev/null "https://$h" 2>/dev/null \
+           || curl -fsSI --connect-timeout 5 --max-time 10 -o /dev/null "https://$h" 2>/dev/null; then
+            echo "  - $h reachable"
+        else
+            err "  - $h NOT reachable"
+            fail=1
+        fi
+    done
+    [ "$fail" -eq 0 ] || die "Network connectivity check failed. Ensure this host can reach GitHub and npm (and NodeSource if Node.js must be installed), then re-run."
+}
+
 # ===========================================================================
 log "=== Nexus Kiosk Linux Installer ==="
 echo ""
@@ -121,6 +146,9 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
 
     cd "$INSTALL_DIR"
 
+    # Bail out clearly (before any destructive step) if we can't reach the network.
+    check_network_connectivity
+
     # Back up runtime state before the destructive reset. board/config JSON is
     # normally untracked (survives reset --hard), but this is a safety net in
     # case it ever becomes tracked or a stale local commit exists.
@@ -131,16 +159,24 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     log "Runtime state backed up to $BACKUP_DIR"
 
     log "Pulling latest from $REPO_BRANCH..."
-    git fetch origin "$REPO_BRANCH"
-    git reset --hard "origin/$REPO_BRANCH"
+    # Finite git timeout so a stalled transfer aborts instead of hanging.
+    GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=20 \
+        git fetch origin "$REPO_BRANCH" \
+        || die "git fetch failed — cannot reach $REPO_URL or branch '$REPO_BRANCH' is missing. Check network/credentials and retry."
+    git rev-parse --verify "origin/$REPO_BRANCH" >/dev/null 2>&1 \
+        || die "Branch origin/$REPO_BRANCH not available after fetch."
+    git reset --hard "origin/$REPO_BRANCH" \
+        || die "git reset failed — repository state may be inconsistent at $INSTALL_DIR."
 
     log "Reinstalling dependencies..."
     rm -rf node_modules server/node_modules client/node_modules
-    npm install
+    npm install \
+        || die "npm install failed — could not reach registry.npmjs.org or a dependency failed to build. node_modules was wiped; re-run after restoring connectivity."
     find "$INSTALL_DIR" -path "*/node_modules/.bin/*" -exec chmod +x {} \; 2>/dev/null || true
 
     log "Rebuilding..."
-    npm run build
+    npm run build \
+        || die "npm run build failed — see output above. The previous build (client/dist) may be stale."
 
     # Re-install service file so any changes (e.g. NODE_ENV, paths) take effect
     log "Updating service file..."
@@ -161,12 +197,15 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     as_root systemctl restart dashboard-backend.service
     as_root systemctl restart dashboard-kiosk.service 2>/dev/null || true
 
-    # Verify backend came up; retry up to 3 times if port was still held
-    local attempt=0
-    while [ $attempt -lt 3 ]; do
+    # Verify backend came up; retry up to 3 times if port was still held.
+    # NOTE: this block runs at top level (not in a function) so we must NOT use
+    # `local` here — that would abort under `set -euo pipefail`.
+    attempt=0
+    backend_up=0
+    while [ "$attempt" -lt 3 ]; do
         sleep 4
         if systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
-            log "Backend running ✓"
+            backend_up=1
             break
         fi
         attempt=$((attempt + 1))
@@ -175,10 +214,7 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
         sleep 1
         as_root systemctl restart dashboard-backend.service
     done
-    if ! systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
-        sleep 4
-    fi
-    if systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
+    if [ "$backend_up" -eq 1 ]; then
         log "Backend running ✓"
     else
         err "Backend failed to start after 3 attempts."
@@ -209,34 +245,52 @@ else
     echo "Node.js not found"
 fi
 
+# Verify required hosts are reachable before any network step (NodeSource, apt,
+# git clone, npm). Only require NodeSource if we actually need to install Node.
+if [ "$NODE_OK" = false ]; then
+    check_network_connectivity node
+else
+    check_network_connectivity
+fi
+echo ""
+
 if [ "$NODE_OK" = false ]; then
     echo "Installing Node.js 20 via NodeSource..."
+    NS=$(curl -fsSL --connect-timeout 5 --max-time 30 https://deb.nodesource.com/setup_20.x) \
+        || die "Cannot reach deb.nodesource.com to install Node.js — check connectivity."
     if [ "$(id -u)" -eq 0 ]; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        printf '%s' "$NS" | bash -
     else
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        printf '%s' "$NS" | sudo -E bash -
     fi
-    as_root apt-get install -y nodejs
+    as_root apt-get install -y nodejs || die "apt-get install nodejs failed."
     echo "Node.js installed: $(node -v)"
 fi
 echo ""
 
 # ---- Step 3: System dependencies ------------------------------------------
 step "Step 3: Installing system dependencies"
-as_root apt-get update
+as_root apt-get update || die "apt-get update failed — check network/apt sources."
 # git is needed to clone/update; chromium + unclutter for the kiosk display.
 as_root apt-get install -y git curl ca-certificates chromium-browser unclutter \
-    || as_root apt-get install -y git curl ca-certificates chromium unclutter
+    || as_root apt-get install -y git curl ca-certificates chromium unclutter \
+    || die "Failed to install system dependencies (git/curl/chromium/unclutter)."
 echo "System dependencies installed"
 echo ""
 
 # ---- Step 4: Clone or update the repo -------------------------------------
 step "Step 4: Fetching Nexus Kiosk source"
+# Finite git timeout so a stalled transfer aborts instead of hanging.
+export GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=20
 if [ -d "$INSTALL_DIR/.git" ]; then
     echo "Existing checkout found — updating via git pull..."
     cd "$INSTALL_DIR"
-    git fetch origin "$REPO_BRANCH"
-    git reset --hard "origin/$REPO_BRANCH"
+    git fetch origin "$REPO_BRANCH" \
+        || die "git fetch failed — cannot reach $REPO_URL or branch '$REPO_BRANCH' is missing. Check network/credentials and retry."
+    git rev-parse --verify "origin/$REPO_BRANCH" >/dev/null 2>&1 \
+        || die "Branch origin/$REPO_BRANCH not available after fetch."
+    git reset --hard "origin/$REPO_BRANCH" \
+        || die "git reset failed — repository state may be inconsistent at $INSTALL_DIR."
 elif [ -d "$INSTALL_DIR" ] && [ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]; then
     # Directory exists with files but is not a git repo (e.g. scp'd copy).
     # Initialize git in place and pull the canonical source over it.
@@ -244,11 +298,16 @@ elif [ -d "$INSTALL_DIR" ] && [ -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]; then
     cd "$INSTALL_DIR"
     git init -q
     git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
-    git fetch origin "$REPO_BRANCH"
-    git reset --hard "origin/$REPO_BRANCH"
+    git fetch origin "$REPO_BRANCH" \
+        || die "git fetch failed while initializing $INSTALL_DIR — check connectivity and retry."
+    git rev-parse --verify "origin/$REPO_BRANCH" >/dev/null 2>&1 \
+        || die "Branch origin/$REPO_BRANCH not available after fetch."
+    git reset --hard "origin/$REPO_BRANCH" \
+        || die "git reset failed — repository state may be inconsistent at $INSTALL_DIR."
 else
     echo "Cloning $REPO_URL ..."
-    git clone --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR"
+    git clone --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR" \
+        || die "git clone failed — cannot reach $REPO_URL. Check network/credentials and retry."
     cd "$INSTALL_DIR"
 fi
 # Make sure the kiosk user owns the tree (it may have been created by root).
@@ -266,13 +325,15 @@ echo "Removing old node_modules..."
 rm -rf node_modules server/node_modules client/node_modules
 
 echo "Running npm install..."
-npm install
+npm install \
+    || die "npm install failed — could not reach registry.npmjs.org or a dependency failed to build. node_modules was wiped; re-run after restoring connectivity."
 
 # Ensure every workspace .bin shim is executable (tsc, vite, tsx, etc.).
 find "$INSTALL_DIR" -path "*/node_modules/.bin/*" -exec chmod +x {} \; 2>/dev/null || true
 
 echo "Building client + server..."
-npm run build
+npm run build \
+    || die "npm run build failed — see output above."
 echo ""
 
 # ---- Step 6: Environment file ---------------------------------------------
@@ -287,6 +348,9 @@ if [ ! -f "$ENV_FILE" ]; then
         cat > "$ENV_FILE" <<EOF
 PORT=3001
 NODE_ENV=production
+CORS_ORIGIN=http://localhost:3001
+AZURE_TENANT_ID=
+AZURE_CLIENT_ID=
 ENCRYPTION_SECRET=
 LOG_LEVEL=info
 DISABLE_AZURE=false
@@ -307,6 +371,12 @@ EOF
         sed -i "s|^NODE_ENV=.*|NODE_ENV=production|" "$ENV_FILE"
     else
         echo "NODE_ENV=production" >> "$ENV_FILE"
+    fi
+
+    # CORS_ORIGIN is REQUIRED in production (server refuses to start without it
+    # and never falls back to '*'). Default to the same-origin kiosk URL.
+    if ! grep -q "^CORS_ORIGIN=" "$ENV_FILE"; then
+        echo "CORS_ORIGIN=http://localhost:3001" >> "$ENV_FILE"
     fi
 
     as_root chown "$KIOSK_USER:$KIOSK_USER" "$ENV_FILE"

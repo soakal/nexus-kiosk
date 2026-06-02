@@ -1,4 +1,4 @@
-import { JobStatus, STATUS_ORDER, DEFAULT_BOARD_CONFIG } from '../../types/board'
+import { JobStatus, STATUS_ORDER } from '../../types/board'
 import { statusLabel } from './boardColors'
 
 interface Props {
@@ -6,9 +6,10 @@ interface Props {
   status: JobStatus
   disabled: boolean
   onStatusChange: (s: JobStatus) => void
+  statusColors: Record<JobStatus, string>
 }
 
-export default function StatusCheckboxes({ jobNumber, status, disabled, onStatusChange }: Props) {
+export default function StatusCheckboxes({ jobNumber, status, disabled, onStatusChange, statusColors }: Props) {
   const currentIndex = STATUS_ORDER.indexOf(status)
 
   const handleCheckboxClick = (boxStatus: JobStatus) => {
@@ -37,7 +38,7 @@ export default function StatusCheckboxes({ jobNumber, status, disabled, onStatus
     <div className={`flex gap-4 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       {STATUS_ORDER.filter(s => s !== 'none').map((boxStatus) => {
         const checked = isChecked(boxStatus)
-        const backgroundColor = DEFAULT_BOARD_CONFIG.statusColors[boxStatus]
+        const backgroundColor = statusColors[boxStatus]
 
         return (
           <button

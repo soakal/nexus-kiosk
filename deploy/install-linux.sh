@@ -83,6 +83,11 @@ echo ""
 DEFAULT_USER="$(default_user)"
 DEFAULT_DIR="/home/${DEFAULT_USER}/nexus-kiosk"
 
+# When piped (curl | bash) stdin is not a terminal — auto-use defaults.
+if [ ! -t 0 ] && [ "${NEXUS_UPDATE:-}" != "1" ] && [ "${NON_INTERACTIVE:-}" != "1" ]; then
+    NON_INTERACTIVE=1
+fi
+
 if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     step "Update mode (NEXUS_UPDATE=1): skipping prompts"
     INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_DIR}"

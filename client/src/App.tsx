@@ -14,6 +14,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 const BoardLayout = lazy(() => import('./components/board/BoardLayout'));
 const JobListView = lazy(() => import('./components/board/JobListView'));
 const UsersView = lazy(() => import('./components/board/UsersView'));
+const ImportView = lazy(() => import('./components/board/ImportView'));
 
 function AppInner() {
   const navigate = useNavigate();
@@ -203,6 +204,14 @@ function AppInner() {
             element={
               <Suspense fallback={null}>
                 <UsersView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="import"
+            element={
+              <Suspense fallback={null}>
+                <ImportView />
               </Suspense>
             }
           />

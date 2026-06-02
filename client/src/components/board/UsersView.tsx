@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
-import { useBoardUsers, useBoardConfig, useUpdateBoardConfig, useImportJobs } from '../../hooks/useBoard'
+import { useState, useEffect } from 'react'
+import { useBoardUsers, useBoardConfig, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobStatus, BoardUser, DEFAULT_BOARD_CONFIG } from '../../types/board'
 import { statusLabel } from './boardColors'
@@ -20,12 +20,11 @@ export default function UsersView() {
   const { users } = useBoardUsers()
   const { config } = useBoardConfig()
   const updateConfig = useUpdateBoardConfig()
-  const importJobs = useImportJobs()
 
   const activeUser = useAppStore((s) => s.activeUser)
   const setActiveUser = useAppStore((s) => s.setActiveUser)
 
-  // ── Section 2: color state ────────────────────────────────────────────────
+  // ── color state ───────────────────────────────────────────────────────────
   const [localColors, setLocalColors] = useState<Record<JobStatus, string>>(
     () => ({ ...DEFAULT_BOARD_CONFIG.statusColors, ...config.statusColors })
   )
@@ -48,22 +47,6 @@ export default function UsersView() {
       }
     )
   }
-
-  // ── Section 3: import state ───────────────────────────────────────────────
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFile(e.target.files?.[0] ?? null)
-  }
-
-  const handleImport = () => {
-    if (!selectedFile) return
-    importJobs.mutate(selectedFile)
-  }
-
-  const importResult = importJobs.data as { imported: number; warnings: string[] } | undefined
-  const importError = importJobs.error as Error | null
 
   return (
     <div className="divide-y divide-slate-800">
@@ -147,61 +130,6 @@ export default function UsersView() {
             <span className="text-green-400 text-xs">Saved!</span>
           )}
         </div>
-      </div>
-
-      {/* ── Section 3: Import Jobs ────────────────────────────────────────────── */}
-      <div className="py-4 px-1">
-        <h3 className="text-slate-300 font-semibold text-sm mb-1">Import Jobs</h3>
-        <p className="text-slate-500 text-xs mb-3">
-          Upload an XLSM or XLSX file exported from your project tracking spreadsheet
-        </p>
-
-        <div className="flex items-center gap-3 mb-3">
-          <label className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded cursor-pointer transition-colors">
-            Choose File
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsm,.xlsx"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </label>
-          <span className="text-slate-500 text-xs truncate max-w-[180px]">
-            {selectedFile ? selectedFile.name : 'No file selected'}
-          </span>
-        </div>
-
-        <button
-          onClick={handleImport}
-          disabled={!selectedFile || importJobs.isPending}
-          className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {importJobs.isPending ? 'Importing...' : 'Import'}
-        </button>
-
-        {/* Success */}
-        {importJobs.isSuccess && importResult && (
-          <div className="mt-3">
-            <p className="text-green-400 text-xs">
-              &#x2713; Imported {importResult.imported} job{importResult.imported !== 1 ? 's' : ''}
-            </p>
-            {importResult.warnings.length > 0 && (
-              <ul className="mt-1 list-disc list-inside text-amber-400 text-xs space-y-0.5">
-                {importResult.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {/* Error */}
-        {importError && (
-          <p className="mt-3 text-red-400 text-xs">
-            {importError.message}
-          </p>
-        )}
       </div>
 
     </div>

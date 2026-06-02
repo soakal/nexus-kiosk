@@ -95,6 +95,20 @@ export function BoardHeader() {
           Users
         </NavLink>
 
+        <NavLink
+          to="/board/import"
+          className={({ isActive }) =>
+            `px-3 py-2 text-sm font-medium rounded-t transition-colors ${
+              isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+            }`
+          }
+          style={({ isActive }) =>
+            isActive ? { borderBottom: '2px solid #6366f1', backgroundColor: '#6366f118' } : {}
+          }
+        >
+          Import
+        </NavLink>
+
         {/* Mobile-only: active user indicator */}
         {activeUser && (
           <span className="sm:hidden ml-auto flex items-center gap-1 text-xs text-slate-400 pb-2">

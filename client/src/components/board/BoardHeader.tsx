@@ -54,7 +54,7 @@ export function BoardHeader() {
             to="/"
             className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
           >
-            &larr; Dashboard
+            &larr; Calendar
           </Link>
         </div>
       </div>

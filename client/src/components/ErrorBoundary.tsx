@@ -57,7 +57,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           <div>
             <h1 className="text-2xl font-semibold text-white mb-2">Something went wrong</h1>
             <p className="text-sm text-slate-400">
-              VRSI Dashboard encountered an unexpected error.
+              VRSI Calendar encountered an unexpected error.
             </p>
           </div>
 

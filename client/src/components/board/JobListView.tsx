@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -15,11 +15,18 @@ export function JobListView({ tab }: Props) {
   const { activeUser } = useAppStore()
   const [showAll, setShowAll] = useState(false)
   const [search, setSearch] = useState('')
-
-  // Prompt to pick a user via header dropdown — no redirect needed
+  const listTopRef = useRef<HTMLDivElement>(null)
 
   // Reset filters whenever the active user changes
   useEffect(() => { setShowAll(false); setSearch('') }, [activeUser?.id])
+
+  // Scroll to top of list when search changes
+  useEffect(() => {
+    if (search) {
+      const scrollParent = listTopRef.current?.closest('main') as HTMLElement | null
+      if (scrollParent) scrollParent.scrollTop = 0
+    }
+  }, [search])
 
   if (isLoading) {
     return (
@@ -67,7 +74,7 @@ export function JobListView({ tab }: Props) {
     filtered = tabFiltered
   }
 
-  // Step 3: apply search filter
+  // Step 3: apply search filter (job#, customer, pm)
   const q = search.trim().toLowerCase()
   const searched = q
     ? filtered.filter((j) =>
@@ -88,47 +95,50 @@ export function JobListView({ tab }: Props) {
   const canToggle = !!activeUser && !isSuper && activeUser.role !== 'manual'
 
   return (
-    <div>
-      {/* Search */}
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search job #, customer, or PM…"
-        className="w-full mb-3 bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-      />
+    <div ref={listTopRef}>
+      {/* Sticky search + controls bar */}
+      <div className="sticky top-0 z-10 bg-[#0f1117] pb-3 pt-1">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search job #, customer, or PM…"
+          className="w-full bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+        />
 
-      {/* Count + toggle row */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-slate-500 text-sm">
-          {sorted.length} job{sorted.length !== 1 ? 's' : ''} &middot; sorted by ship date
-        </p>
-        {canToggle && (
-          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-0.5">
-            <button
-              type="button"
-              onClick={() => setShowAll(false)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                !showAll ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              My Jobs
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAll(true)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                showAll ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              All Jobs
-            </button>
-          </div>
-        )}
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-slate-500 text-sm">
+            {sorted.length} job{sorted.length !== 1 ? 's' : ''}
+            {q ? ` matching "${search.trim()}"` : ' · sorted by ship date'}
+          </p>
+          {canToggle && (
+            <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  !showAll ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                My Jobs
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  showAll ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                All Jobs
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Job list */}
       {sorted.length === 0 ? (
-        <p className="text-slate-500 text-sm">No jobs found.</p>
+        <p className="text-slate-500 text-sm mt-2">No jobs found.</p>
       ) : (
         sorted.map((job) => (
           <JobCard key={job.jobNumber} job={job} activeUser={activeUser} config={config} />

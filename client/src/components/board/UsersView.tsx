@@ -180,17 +180,21 @@ export default function UsersView() {
       {/* ── Section 3: Spare Parts PM ────────────────────────────────────────── */}
       <div className="py-4 px-1">
         <h3 className="text-slate-300 font-semibold text-sm mb-1">Spare Parts PM</h3>
-        <p className="text-slate-500 text-xs mb-3">Jobs assigned to this PM/email go to the Spare Parts tab.</p>
+        <p className="text-slate-500 text-xs mb-3">Jobs assigned to this PM go to the Spare Parts tab.</p>
 
         <div className="flex gap-2 mb-1">
-          <input
-            type="text"
+          <select
             value={spareCarrierInput}
             onChange={(e) => setSpareCarrierInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveSpareCarrier() }}
-            placeholder="e.g. matto@vrs-inc.com"
-            className="flex-1 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 px-3 py-1.5 placeholder-slate-600 focus:outline-none focus:border-blue-500/50"
-          />
+            className="flex-1 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 px-3 py-1.5 focus:outline-none focus:border-blue-500/50 cursor-pointer"
+          >
+            <option value="">— Select a PM —</option>
+            {users.filter((u) => u.role === 'pm').map((u) => (
+              <option key={u.id} value={u.name}>
+                {u.name}{u.name === config.spareCarrier ? ' ✓' : ''}
+              </option>
+            ))}
+          </select>
           <button
             onClick={handleSaveSpareCarrier}
             disabled={updateConfig.isPending || !spareCarrierInput.trim()}

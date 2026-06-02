@@ -102,13 +102,16 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
   }
 
   for (let i = 0; i < headers.length; i++) {
-    const raw = String(headers[i] ?? '').toLowerCase().trim()
+    const raw = String(headers[i] ?? '').toLowerCase().trim().replace(/\s+/g, ' ')
     if (!raw) continue
 
-    if (raw.includes('job') && (raw.includes('#') || raw.includes('num') || raw.includes('no'))) {
+    if (
+      raw === 'job' ||
+      (raw.includes('job') && (raw.includes('#') || raw.includes('num') || raw.includes('no')))
+    ) {
       if (colMap.jobNumber === null) colMap.jobNumber = i
     } else if (
-      (raw.includes('pm') || raw.includes('project manager')) &&
+      (raw === 'pm' || raw.includes('project manager')) &&
       !raw.includes('ship')
     ) {
       if (colMap.pm === null) colMap.pm = i
@@ -120,7 +123,10 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       if (colMap.pabsComplete === null) colMap.pabsComplete = i
     } else if (raw.includes('ship') && raw.includes('pm')) {
       if (colMap.shipToPm === null) colMap.shipToPm = i
-    } else if (raw.includes('ship') && raw.includes('customer')) {
+    } else if (
+      (raw.includes('ship') && raw.includes('customer')) ||
+      raw === 'ship from vrsi'
+    ) {
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i
     }
   }
@@ -182,19 +188,30 @@ export function parseXlsm(
   originalName: string,
 ): { jobs: Job[]; warnings: string[] } {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
-  const sheet = workbook.Sheets[workbook.SheetNames[0]]
+
+  // Prefer "Active Projects" sheet; fall back to first sheet
+  const sheetName = workbook.SheetNames.includes('Active Projects')
+    ? 'Active Projects'
+    : workbook.SheetNames[0]
+  const sheet = workbook.Sheets[sheetName]
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][]
 
-  if (rows.length === 0) {
+  if (rows.length < 2) {
     return { jobs: [], warnings: ['Spreadsheet is empty'] }
   }
 
-  const headers = rows[0] as unknown[]
+  // Active Projects has a numeric index row first — real headers are in row index 1
+  const firstRow = (rows[0] as unknown[]).map((v) => String(v ?? '').trim())
+  const isNumericHeader = firstRow.length > 0 && firstRow.every((v) => v === '' || /^\d+$/.test(v))
+  const headerRowIndex = isNumericHeader ? 1 : 0
+  const dataStartIndex = headerRowIndex + 1
+
+  const headers = rows[headerRowIndex] as unknown[]
   const { colMap, warnings } = detectColumns(headers)
 
   const jobs: Job[] = []
 
-  for (let r = 1; r < rows.length; r++) {
+  for (let r = dataStartIndex; r < rows.length; r++) {
     const row = rows[r] as unknown[]
 
     const jobNumberRaw =
@@ -204,7 +221,7 @@ export function parseXlsm(
     const getString = (col: number | null): string => {
       if (col === null) return ''
       const val = row[col]
-      return val != null ? String(val).trim() : ''
+      return val != null ? String(val).trim().toLowerCase() : ''
     }
 
     const getDate = (col: number | null): string | null => {
@@ -215,7 +232,9 @@ export function parseXlsm(
     const job: Job = {
       jobNumber: String(jobNumberRaw).trim(),
       pm: getString(colMap.pm),
-      customer: getString(colMap.customer),
+      customer: colMap.customer !== null
+        ? (row[colMap.customer] != null ? String(row[colMap.customer]).trim() : '')
+        : '',
       materialsManager: getString(colMap.materialsManager),
       pabsComplete: getDate(colMap.pabsComplete),
       shipToPm: getDate(colMap.shipToPm),

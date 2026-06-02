@@ -39,6 +39,7 @@ npm install
 find "$INSTALL_DIR" -path "*/node_modules/.bin/*" -exec chmod +x {} \; 2>/dev/null || true
 npm run build
 
+sudo fuser -k 3001/tcp 2>/dev/null || true
 sudo systemctl restart dashboard-backend.service
 sudo systemctl restart dashboard-kiosk.service 2>/dev/null || true
 

@@ -143,6 +143,7 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     npm run build
 
     log "Restarting services..."
+    as_root fuser -k 3001/tcp 2>/dev/null || true
     as_root systemctl restart dashboard-backend.service
     as_root systemctl restart dashboard-kiosk.service 2>/dev/null || true
 
@@ -355,6 +356,7 @@ echo ""
 
 # ---- Restart backend -------------------------------------------------------
 step "Restarting backend service..."
+as_root fuser -k 3001/tcp 2>/dev/null || true
 as_root systemctl restart dashboard-backend.service && echo "Backend restarted" || warn "Backend restart failed — run: sudo systemctl restart dashboard-backend"
 echo ""
 

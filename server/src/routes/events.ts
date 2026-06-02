@@ -7,20 +7,22 @@ import { logger } from '../utils/logger.js';
 
 export const eventsRouter = Router();
 
+/**
+ * Shape returned to the client — must match client/src/types/index.ts CalendarEvent.
+ * The Graph API returns start/end as nested objects; we flatten them here so the
+ * client can use startDateTime / endDateTime directly without crashing.
+ */
 export interface NormalizedEvent {
   id: string;
   subject: string;
-  start: { dateTime: string; timeZone: string };
-  end: { dateTime: string; timeZone: string };
+  startDateTime: string;
+  endDateTime: string;
   isAllDay: boolean;
   location?: string;
-  organizer?: { name: string; email: string };
-  bodyPreview?: string;
-  webLink?: string;
+  bodyPreview: string;
   calendarId: string;
   calendarName: string;
   calendarColor: string;
-  calendarHexColor: string;
 }
 
 eventsRouter.get(
@@ -67,22 +69,15 @@ eventsRouter.get(
         return {
           id: event.id,
           subject: event.subject,
-          start: event.start,
-          end: event.end,
+          // Flatten nested Graph dateTime objects into the flat strings the client expects
+          startDateTime: event.start.dateTime,
+          endDateTime: event.end.dateTime,
           isAllDay: event.isAllDay,
           location: event.location?.displayName,
-          organizer: event.organizer
-            ? {
-                name: event.organizer.emailAddress.name,
-                email: event.organizer.emailAddress.address,
-              }
-            : undefined,
-          bodyPreview: event.bodyPreview,
-          webLink: event.webLink,
-          calendarId: event.calendarId,
+          bodyPreview: event.bodyPreview ?? '',
+          calendarId: event.calendarId ?? '',
           calendarName: cal?.name ?? 'Unknown',
-          calendarColor: cal?.color ?? 'auto',
-          calendarHexColor: cal?.hexColor ?? '#0078D4',
+          calendarColor: cal?.hexColor ?? '#3b82f6',
         };
       });
 

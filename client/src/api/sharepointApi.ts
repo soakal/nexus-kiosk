@@ -1,8 +1,10 @@
 import type { SharePointFile, SharePointSite, SharePointDrive } from '../types/index';
 
 export async function getRecentFiles(count: number): Promise<SharePointFile[]> {
+  // The server exposes recent files at /api/sharepoint/recent, not /files.
+  // /api/sharepoint/files requires a driveId parameter and returns a 400 otherwise.
   const params = new URLSearchParams({ count: count.toString() });
-  const response = await fetch(`/api/sharepoint/files?${params}`);
+  const response = await fetch(`/api/sharepoint/recent?${params}`);
   if (!response.ok) {
     throw new Error('Failed to get recent files');
   }

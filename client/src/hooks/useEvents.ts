@@ -19,15 +19,21 @@ export function useEvents(
     };
   }, []);
 
+  // Allow calendarIds to be empty — the server will fall back to all available
+  // calendars. Guarding on length > 0 prevents events from ever loading when
+  // the user hasn't explicitly picked calendars yet (the default config state).
+  const safeCalendarIds = Array.isArray(calendarIds) ? calendarIds : [];
+
   const q = useQuery({
-    queryKey: ['events', calendarIds, weekStart],
-    queryFn: () => getEvents(calendarIds, new Date(weekStart), new Date(weekEnd)),
-    enabled: enabled && calendarIds.length > 0,
+    queryKey: ['events', safeCalendarIds, weekStart],
+    queryFn: () => getEvents(safeCalendarIds, new Date(weekStart), new Date(weekEnd)),
+    enabled: enabled,
     refetchInterval: refreshSec * 1000,
   });
 
   return {
-    events: q.data ?? [],
+    // Ensure we always return an array even if the query returns something unexpected
+    events: Array.isArray(q.data) ? q.data : [],
     isLoading: q.isLoading,
     dataUpdatedAt: q.dataUpdatedAt ?? 0,
   };

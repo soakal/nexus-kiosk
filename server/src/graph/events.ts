@@ -28,10 +28,16 @@ export async function listEvents(
   if (process.env.DISABLE_AZURE === 'true') {
     logger.info('Test mode: returning mock events');
     const mockEvents = getMockEvents();
+    // calendarIds may be empty when no calendars have been selected yet in config;
+    // fall back to a stable mock id so calendarId is never undefined.
+    const fallbackId = 'calendar-personal';
     return mockEvents.map((event, index) => ({
       ...event,
       isAllDay: false,
-      calendarId: calendarIds[index % calendarIds.length],
+      calendarId:
+        calendarIds.length > 0
+          ? calendarIds[index % calendarIds.length]
+          : fallbackId,
     }));
   }
 

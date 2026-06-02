@@ -28,7 +28,19 @@ sharepointRouter.get(
       const count = countParam ? parseInt(countParam, 10) : 20;
       logger.debug('GET /api/sharepoint/recent', { count });
       const files = await listRecentFiles(count);
-      res.json(files);
+      // Normalize to the flat SharePointFile shape the client expects so that
+      // fields like mimeType, siteName, driveId are never undefined in renders.
+      const normalized = files.map((f) => ({
+        id: f.id,
+        name: f.name,
+        webUrl: f.webUrl ?? '',
+        lastModifiedDateTime: f.lastModifiedDateTime ?? new Date().toISOString(),
+        size: f.size ?? 0,
+        mimeType: f.file?.mimeType ?? '',
+        siteName: 'OneDrive',
+        driveId: '',
+      }));
+      res.json(normalized);
     } catch (err) {
       next(err);
     }

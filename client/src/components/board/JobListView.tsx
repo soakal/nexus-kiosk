@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -14,16 +14,30 @@ export function JobListView({ tab }: Props) {
   const { config } = useBoardConfig()
   const { activeUser } = useAppStore()
   const [showAll, setShowAll] = useState(false)
+  const [inputValue, setInputValue] = useState('')
   const [search, setSearch] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset filters whenever the active user changes
-  useEffect(() => { setShowAll(false); setSearch('') }, [activeUser?.id])
+  useEffect(() => {
+    setShowAll(false)
+    setInputValue('')
+    setSearch('')
+  }, [activeUser?.id])
 
-  // Scroll to top before paint so the filtered list is never seen at a stale position
+  // Scroll to top before paint whenever the committed search changes
   useLayoutEffect(() => {
     const el = document.getElementById('board-scroll')
     if (el) el.scrollTop = 0
   }, [search])
+
+  const commitSearch = () => setSearch(inputValue)
+
+  const clearSearch = () => {
+    setInputValue('')
+    setSearch('')
+    inputRef.current?.focus()
+  }
 
   if (isLoading) {
     return (
@@ -49,7 +63,7 @@ export function JobListView({ tab }: Props) {
 
   const isSuper = activeUser?.name === config.superUser
 
-  // Step 1: apply tab filter (super user bypasses — sees all jobs in both tabs)
+  // Step 1: tab filter (super user bypasses — sees all jobs in both tabs)
   let tabFiltered: BoardJob[]
   if (isSuper) {
     tabFiltered = jobs
@@ -59,7 +73,7 @@ export function JobListView({ tab }: Props) {
     tabFiltered = jobs.filter((j) => j.pm !== config.spareCarrier)
   }
 
-  // Step 2: apply user filter
+  // Step 2: user filter
   let filtered: BoardJob[]
   if (!activeUser || isSuper || showAll || activeUser.role === 'manual') {
     filtered = tabFiltered
@@ -71,7 +85,7 @@ export function JobListView({ tab }: Props) {
     filtered = tabFiltered
   }
 
-  // Step 3: apply search filter (job#, customer, pm)
+  // Step 3: committed search filter (job#, customer, pm)
   const q = search.trim().toLowerCase()
   const searched = q
     ? filtered.filter((j) =>
@@ -93,17 +107,38 @@ export function JobListView({ tab }: Props) {
 
   return (
     <div>
-      {/* Sticky search + controls bar.
-          -mt-6 + pt-6 pulls the bar up over <main>'s py-6 top padding so cards
-          scrolling underneath are fully masked by the bar's background. */}
       <div className="sticky top-0 z-10 bg-[#0f1117] -mt-6 pt-6 pb-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search job number, customer, or PM…"
-          className="w-full bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-        />
+        {/* Search row */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
+              placeholder="Search job number, customer, or PM…"
+              className="w-full bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+            />
+            {inputValue && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-lg leading-none"
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={commitSearch}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shrink-0"
+          >
+            Search
+          </button>
+        </div>
 
         <div className="flex items-center justify-between mt-2">
           <p className="text-slate-500 text-sm">

@@ -84,9 +84,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           <Clock timeFormat={config.timeFormat} />
         </div>
 
-        {/* Center: VRSI logo + NextEventBadge (desktop only) */}
+        {/* Center: VRSI logo (desktop only) + NextEventBadge */}
         <div className="flex flex-1 flex-col items-center justify-center gap-1 min-w-0">
-          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="h-6 w-auto opacity-85" />
+          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="hidden md:block h-14 w-auto opacity-85" />
           {config.showNextEvent && (
             <div className="hidden md:block">
               <NextEventBadge events={events} />
@@ -189,9 +189,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* Status bar — desktop only (keyboard hints + display mode) */}
       <footer className="hidden md:flex flex-shrink-0 items-center justify-between border-t border-white/5 bg-black/20 px-5 py-1.5">
         <div className="flex items-center gap-2">
-          <img src="/logos/vrsi-icon-white.png" alt="VRSI" className="h-4 w-auto opacity-60" />
           {/* Display mode tabs */}
-          <div className="flex gap-1 ml-3">
+          <div className="flex gap-1">
             {(['day', 'week', 'month'] as const).map((mode) => (
               <button
                 key={mode}
@@ -234,24 +233,27 @@ const Dashboard: React.FC<DashboardProps> = ({
       </footer>
 
       {/* Mobile bottom nav bar */}
-      <div className="md:hidden flex flex-shrink-0 items-center justify-between px-4 py-2 bg-[#13171f] border-t border-slate-800">
+      <div className="md:hidden flex flex-shrink-0 items-center justify-between px-3 py-2 bg-[#13171f] border-t border-slate-800">
         <div className="flex gap-1">
-          {(['day', 'week', 'month'] as const).map((mode) => (
+          {([['day','D'], ['week','W'], ['month','M']] as const).map(([mode, label]) => (
             <button
               key={mode}
               type="button"
               onClick={() => onSetDisplayMode(mode)}
-              className={`px-3 py-1.5 rounded text-xs font-medium uppercase tracking-wide transition-colors ${
+              className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-colors ${
                 displayMode === mode
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              {mode}
+              {label}
             </button>
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1.5">
+          <Link to="/board" className="flex items-center bg-blue-700/80 hover:bg-blue-600 text-white px-3 py-1.5 rounded transition-colors text-xs font-semibold">
+            Projects
+          </Link>
           <button
             type="button"
             onClick={onOpenSettings}
@@ -268,7 +270,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           >
             📁
           </button>
-          <Link to="/board" className="flex items-center bg-slate-700/60 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors text-xs font-medium">Projects</Link>
         </div>
       </div>
     </div>

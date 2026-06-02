@@ -15,6 +15,7 @@ export function JobListView({ tab }: Props) {
   const { activeUser } = useAppStore()
   const navigate = useNavigate()
   const [showAll, setShowAll] = useState(false)
+  const [search, setSearch] = useState('')
 
   // Redirect to Users tab if no user selected
   useEffect(() => {
@@ -23,8 +24,8 @@ export function JobListView({ tab }: Props) {
     }
   }, [activeUser, isLoading, navigate])
 
-  // Reset to "my jobs" whenever the active user changes
-  useEffect(() => { setShowAll(false) }, [activeUser?.id])
+  // Reset filters whenever the active user changes
+  useEffect(() => { setShowAll(false); setSearch('') }, [activeUser?.id])
 
   if (isLoading) {
     return (
@@ -60,7 +61,7 @@ export function JobListView({ tab }: Props) {
     tabFiltered = jobs.filter((j) => j.pm !== config.spareCarrier)
   }
 
-  // Step 2: apply user filter (super sees all; manual/extra role sees all; no user = see all)
+  // Step 2: apply user filter
   let filtered: BoardJob[]
   if (!activeUser || isSuper || showAll || activeUser.role === 'manual') {
     filtered = tabFiltered
@@ -72,19 +73,38 @@ export function JobListView({ tab }: Props) {
     filtered = tabFiltered
   }
 
+  // Step 3: apply search filter
+  const q = search.trim().toLowerCase()
+  const searched = q
+    ? filtered.filter((j) =>
+        j.jobNumber.toLowerCase().includes(q) ||
+        j.customer.toLowerCase().includes(q) ||
+        j.pm.toLowerCase().includes(q)
+      )
+    : filtered
+
   // Sort by effectiveShipDate asc, null dates to the end
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...searched].sort((a, b) => {
     if (!a.effectiveShipDate && !b.effectiveShipDate) return 0
     if (!a.effectiveShipDate) return 1
     if (!b.effectiveShipDate) return -1
     return a.effectiveShipDate.localeCompare(b.effectiveShipDate)
   })
 
-  // Whether the toggle is relevant for this user
   const canToggle = !!activeUser && !isSuper && activeUser.role !== 'manual'
 
   return (
     <div>
+      {/* Search */}
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search job #, customer, or PM…"
+        className="w-full mb-3 bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+      />
+
+      {/* Count + toggle row */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-slate-500 text-sm">
           {sorted.length} job{sorted.length !== 1 ? 's' : ''} &middot; sorted by ship date
@@ -112,6 +132,7 @@ export function JobListView({ tab }: Props) {
           </div>
         )}
       </div>
+
       {sorted.length === 0 ? (
         <p className="text-slate-500 text-sm">No jobs found.</p>
       ) : (

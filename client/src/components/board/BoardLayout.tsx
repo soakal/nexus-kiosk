@@ -3,9 +3,9 @@ import { BoardHeader } from './BoardHeader'
 
 export function BoardLayout() {
   return (
-    <div className="min-h-screen bg-[#0f1117] text-slate-200">
+    <div className="h-screen flex flex-col bg-[#0f1117] text-slate-200">
       <BoardHeader />
-      <main className="max-w-7xl mx-auto px-4 py-6 overflow-y-auto">
+      <main className="flex-1 min-h-0 overflow-y-auto max-w-7xl w-full mx-auto px-4 py-6">
         <Outlet />
       </main>
     </div>

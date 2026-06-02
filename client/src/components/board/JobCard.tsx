@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BoardJob, BoardUser, BoardConfig, JobStatus } from '../../types/board'
 import StatusCheckboxes from './StatusCheckboxes'
 import ShipDateEditor from './ShipDateEditor'
@@ -26,19 +26,37 @@ function formatShipDate(dateStr: string | null): string {
 export function JobCard({ job, activeUser, config }: Props) {
   const [notesOpen, setNotesOpen] = useState(job.notes.length > 0)
 
+  // Pending local state for deferred save
+  const [pendingStatus, setPendingStatus] = useState<JobStatus>(job.status)
+  const [pendingShipDate, setPendingShipDate] = useState<string | null>(job.effectiveShipDate)
+
+  // Re-sync when saved values change (after successful Apply + refetch)
+  useEffect(() => { setPendingStatus(job.status) }, [job.status])
+  useEffect(() => { setPendingShipDate(job.effectiveShipDate) }, [job.effectiveShipDate])
+
   const setJobStatus = useSetJobStatus()
   const setJobShipDate = useSetJobShipDate()
   const addJobNote = useAddJobNote()
   const deleteJobNote = useDeleteJobNote()
 
-  const handleStatusChange = (status: JobStatus) => {
+  const statusDirty = pendingStatus !== job.status
+  const dateDirty = pendingShipDate !== job.effectiveShipDate
+  const isDirty = statusDirty || dateDirty
+  const isSaving = setJobStatus.isPending || setJobShipDate.isPending
+
+  const handleApply = () => {
     if (!activeUser) return
-    setJobStatus.mutate({ jobNumber: job.jobNumber, status, actor: activeUser })
+    if (statusDirty) {
+      setJobStatus.mutate({ jobNumber: job.jobNumber, status: pendingStatus, actor: activeUser })
+    }
+    if (dateDirty) {
+      setJobShipDate.mutate({ jobNumber: job.jobNumber, shipDateOverride: pendingShipDate, actor: activeUser })
+    }
   }
 
-  const handleDateChange = (date: string | null) => {
-    if (!activeUser) return
-    setJobShipDate.mutate({ jobNumber: job.jobNumber, shipDateOverride: date, actor: activeUser })
+  const handleCancel = () => {
+    setPendingStatus(job.status)
+    setPendingShipDate(job.effectiveShipDate)
   }
 
   const handleAddNote = (text: string) => {
@@ -51,7 +69,7 @@ export function JobCard({ job, activeUser, config }: Props) {
     deleteJobNote.mutate({ jobNumber: job.jobNumber, noteId, actor: activeUser })
   }
 
-  const borderLeftColor = config.statusColors[job.status]
+  const borderLeftColor = config.statusColors[pendingStatus]
 
   return (
     <div
@@ -74,8 +92,8 @@ export function JobCard({ job, activeUser, config }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-1 text-slate-300 text-sm text-right">
-          <span>{formatShipDate(job.effectiveShipDate)}</span>
-          {job.shipDateOverridden && (
+          <span>{formatShipDate(pendingShipDate)}</span>
+          {(job.shipDateOverridden || dateDirty) && (
             <span className="text-amber-400 ml-1" title="Ship date overridden">&#9888;</span>
           )}
         </div>
@@ -86,19 +104,19 @@ export function JobCard({ job, activeUser, config }: Props) {
         <span className="text-slate-500 text-xs">MM: {job.materialsManager}</span>
         <StatusCheckboxes
           jobNumber={job.jobNumber}
-          status={job.status}
+          status={pendingStatus}
           disabled={!activeUser}
-          onStatusChange={handleStatusChange}
+          onStatusChange={setPendingStatus}
         />
         <span
           className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
           style={{
-            color: config.statusColors[job.status],
-            backgroundColor: config.statusColors[job.status] + '22',
-            border: `1px solid ${config.statusColors[job.status]}55`,
+            color: config.statusColors[pendingStatus],
+            backgroundColor: config.statusColors[pendingStatus] + '22',
+            border: `1px solid ${config.statusColors[pendingStatus]}55`,
           }}
         >
-          {statusLabel(job.status)}
+          {statusLabel(pendingStatus)}
         </span>
       </div>
 
@@ -106,10 +124,10 @@ export function JobCard({ job, activeUser, config }: Props) {
       <div className="mt-2">
         <ShipDateEditor
           jobNumber={job.jobNumber}
-          effectiveShipDate={job.effectiveShipDate}
-          shipDateOverridden={job.shipDateOverridden}
+          effectiveShipDate={pendingShipDate}
+          shipDateOverridden={job.shipDateOverridden || dateDirty}
           disabled={!activeUser}
-          onDateChange={handleDateChange}
+          onDateChange={setPendingShipDate}
         />
       </div>
 
@@ -136,6 +154,26 @@ export function JobCard({ job, activeUser, config }: Props) {
             onDeleteNote={handleDeleteNote}
             isSubmitting={addJobNote.isPending}
           />
+        </div>
+      )}
+
+      {/* Apply / Cancel — only shown when there are unsaved changes */}
+      {isDirty && (
+        <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-700/50 pt-3">
+          <button
+            onClick={handleCancel}
+            disabled={isSaving}
+            className="px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={isSaving || !activeUser}
+            className="px-4 py-1 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+          >
+            {isSaving ? 'Applying…' : 'Apply'}
+          </button>
         </div>
       )}
     </div>

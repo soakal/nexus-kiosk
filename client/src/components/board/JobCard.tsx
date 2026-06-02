@@ -64,7 +64,7 @@ export function JobCard({ job, activeUser, config }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-slate-100 text-lg font-bold">#{job.jobNumber}</span>
             {job.isNew && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-red-500/20 text-red-400 border border-red-500/30">
                 New
               </span>
             )}

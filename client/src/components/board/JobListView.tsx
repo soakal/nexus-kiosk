@@ -50,9 +50,11 @@ export function JobListView({ tab }: Props) {
 
   const isSuper = activeUser?.name === config.superUser
 
-  // Step 1: apply tab filter
+  // Step 1: apply tab filter (super user bypasses — sees all jobs in both tabs)
   let tabFiltered: BoardJob[]
-  if (tab === 'spare-parts') {
+  if (isSuper) {
+    tabFiltered = jobs
+  } else if (tab === 'spare-parts') {
     tabFiltered = jobs.filter((j) => j.pm === config.spareCarrier)
   } else {
     tabFiltered = jobs.filter((j) => j.pm !== config.spareCarrier)

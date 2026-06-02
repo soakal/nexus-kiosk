@@ -223,7 +223,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <DisplayModePicker mode={displayMode} onChange={onSetDisplayMode} />
         </div>
         <div className="flex items-center gap-1.5">
-          <Link to="/board" className="flex items-center bg-blue-700/80 hover:bg-blue-600 text-white px-3 py-1.5 rounded transition-colors text-xs font-semibold">
+          <Link to="/board" className="flex items-center bg-slate-700/60 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors text-xs font-medium">
             Projects
           </Link>
           <button

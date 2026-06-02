@@ -209,27 +209,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           font-size: 11px;
           cursor: pointer;
         }
-        .nexus-calendar-wrapper .rbc-overlay {
-          background: #1e2536;
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 8px;
-          padding: 8px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-          z-index: 100;
-          min-width: 180px;
+        .rbc-overlay {
+          background: #1e2536 !important;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          border-radius: 8px !important;
+          padding: 8px !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.7) !important;
+          z-index: 200 !important;
+          min-width: 200px !important;
+          max-width: 320px !important;
         }
-        .nexus-calendar-wrapper .rbc-overlay-header {
-          color: #94a3b8;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
-          padding-bottom: 6px;
-          margin-bottom: 6px;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+        .rbc-overlay-header {
+          color: #94a3b8 !important;
+          border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+          padding-bottom: 6px !important;
+          margin-bottom: 6px !important;
+          font-size: 11px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.05em !important;
+          background: transparent !important;
         }
-        .nexus-calendar-wrapper .rbc-overlay .rbc-event {
-          margin-bottom: 3px;
-          cursor: pointer;
+        .rbc-overlay .rbc-event {
+          margin-bottom: 3px !important;
+          cursor: pointer !important;
+          color: #e2e8f0 !important;
+          font-size: 12px !important;
         }
         .nexus-calendar-wrapper .rbc-toolbar {
           display: none;

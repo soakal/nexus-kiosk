@@ -1,6 +1,10 @@
 node_modules/
 dist/
 .env
+*.tsbuildinfo
+client/vite.config.d.ts
+client/vite.config.js
+.claude/worktrees/
 server/data/tokens.json
 server/data/config.json
 server/data/jobs.json

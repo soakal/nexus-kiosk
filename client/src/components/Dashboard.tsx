@@ -87,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Center: VRSI logo (desktop only) + NextEventBadge */}
         <div className="flex flex-1 flex-col items-center justify-center gap-1 min-w-0">
-          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="hidden md:block h-14 w-auto opacity-85" />
+          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="hidden md:block h-20 w-auto opacity-85" />
           {config.showNextEvent && (
             <div className="hidden md:block">
               <NextEventBadge events={events} />

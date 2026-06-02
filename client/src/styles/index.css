@@ -99,11 +99,35 @@ body {
   color: #484f58;
 }
 
-/* Scrollbar hide */
+/* Hide scrollbars globally */
 ::-webkit-scrollbar {
   display: none;
 }
 
 * {
   scrollbar-width: none;
+}
+
+/* Show scrollbar on the board job list */
+#board-scroll::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+#board-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#board-scroll::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+#board-scroll::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+#board-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
 }

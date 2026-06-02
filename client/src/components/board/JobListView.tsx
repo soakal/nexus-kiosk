@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -20,12 +20,13 @@ export function JobListView({ tab }: Props) {
   // Reset filters whenever the active user changes
   useEffect(() => { setShowAll(false); setSearch('') }, [activeUser?.id])
 
-  // Scroll to top of list when search changes
-  useEffect(() => {
-    if (search) {
-      const scrollParent = listTopRef.current?.closest('main') as HTMLElement | null
-      if (scrollParent) scrollParent.scrollTop = 0
-    }
+  // Scroll the list container to the top whenever the search term changes, so
+  // the first matching result is visible without the user having to scroll up.
+  // useLayoutEffect runs after the DOM is updated (filtered/shorter list) but
+  // before paint, so the scroll reset is applied against the new content height.
+  useLayoutEffect(() => {
+    const scrollParent = listTopRef.current?.closest('main') as HTMLElement | null
+    if (scrollParent) scrollParent.scrollTo({ top: 0 })
   }, [search])
 
   if (isLoading) {
@@ -96,8 +97,10 @@ export function JobListView({ tab }: Props) {
 
   return (
     <div ref={listTopRef}>
-      {/* Sticky search + controls bar */}
-      <div className="sticky top-0 z-10 bg-[#0f1117] pb-3 pt-1">
+      {/* Sticky search + controls bar.
+          -mt-6 + pt-6 pulls the bar up over <main>'s py-6 top padding so cards
+          scrolling underneath are fully masked by the bar's background. */}
+      <div className="sticky top-0 z-10 bg-[#0f1117] -mt-6 pt-6 pb-3">
         <input
           type="text"
           value={search}

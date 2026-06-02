@@ -109,14 +109,7 @@ export function JobCard({ job, activeUser, config }: Props) {
           disabled={!activeUser}
           onStatusChange={setPendingStatus}
         />
-        <span
-          className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
-          style={{
-            color: config.statusColors[pendingStatus],
-            backgroundColor: config.statusColors[pendingStatus] + '22',
-            border: `1px solid ${config.statusColors[pendingStatus]}55`,
-          }}
-        >
+        <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full text-slate-400 bg-slate-700/40 border border-slate-600/50">
           {statusLabel(pendingStatus)}
         </span>
       </div>

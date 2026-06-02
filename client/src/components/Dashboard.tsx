@@ -84,15 +84,19 @@ const Dashboard: React.FC<DashboardProps> = ({
           <Clock timeFormat={config.timeFormat} />
         </div>
 
-        {/* Center spacer + NextEventBadge — desktop only */}
-        <div className="hidden md:flex flex-1 items-center justify-center">
-          {config.showNextEvent && <NextEventBadge events={events} />}
+        {/* Center: VRSI logo + NextEventBadge (desktop only) */}
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 min-w-0">
+          <img src="/logos/vrsi-white-letters.png" alt="VRSI" className="h-6 w-auto opacity-85" />
+          {config.showNextEvent && (
+            <div className="hidden md:block">
+              <NextEventBadge events={events} />
+            </div>
+          )}
         </div>
 
-        {/* Weather — desktop: full widget; mobile: compact inline */}
+        {/* Weather - right */}
         {config.showWeather && (
           <>
-            {/* Desktop full weather */}
             <div className="hidden md:flex flex-shrink-0">
               <WeatherWidget
                 lat={config.weatherLat}
@@ -101,8 +105,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 onSunsetIso={handleSunsetIso}
               />
             </div>
-            {/* Mobile compact weather — pushes to right */}
-            <div className="flex md:hidden flex-1 justify-end">
+            <div className="flex md:hidden flex-shrink-0">
               <WeatherWidget
                 lat={config.weatherLat}
                 lon={config.weatherLon}
@@ -113,8 +116,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </>
         )}
-        {/* If no weather, push nothing but still need spacer on mobile */}
-        {!config.showWeather && <div className="flex-1 md:hidden" />}
       </header>
 
       {/* Next event badge — mobile only, below header */}

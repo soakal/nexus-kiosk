@@ -308,6 +308,7 @@ echo ""
 # ---- Step 10: lightdm autologin (best effort) -----------------------------
 step "Step 10: Configuring autologin (lightdm)"
 LIGHTDM_CONF="/etc/lightdm/lightdm.conf"
+LIGHTDM_DROPIN="/etc/lightdm/lightdm.conf.d/50-nexus-kiosk.conf"
 if [ -f "$LIGHTDM_CONF" ]; then
     echo "Configuring lightdm autologin as $KIOSK_USER..."
     if grep -q "^autologin-user=" "$LIGHTDM_CONF"; then
@@ -321,8 +322,16 @@ if [ -f "$LIGHTDM_CONF" ]; then
         as_root sed -i "/^autologin-user=/a autologin-user-timeout=0" "$LIGHTDM_CONF"
     fi
     echo "lightdm autologin configured"
+elif [ -d "/etc/lightdm/lightdm.conf.d" ]; then
+    echo "Configuring lightdm autologin via drop-in config..."
+    as_root bash -c "cat > '$LIGHTDM_DROPIN' << 'EOF'
+[Seat:*]
+autologin-user=$KIOSK_USER
+autologin-user-timeout=0
+EOF"
+    echo "lightdm autologin configured ($LIGHTDM_DROPIN)"
 else
-    warn "lightdm.conf not found — skipping autologin"
+    warn "lightdm not found — skipping autologin"
     echo "To enable manually, add to /etc/lightdm/lightdm.conf under [Seat:*]:"
     echo "  autologin-user=$KIOSK_USER"
     echo "  autologin-user-timeout=0"

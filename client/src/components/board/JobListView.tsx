@@ -138,14 +138,6 @@ export function JobListView({ tab }: Props) {
     )
   }
 
-  if (tab === 'archive' && tabFiltered.length === 0) {
-    return (
-      <p className="text-slate-500 text-sm mt-6">
-        No archived jobs yet. Jobs marked as <span className="text-green-400">Shipped</span> will appear here.
-      </p>
-    )
-  }
-
   const spare = norm(config.spareCarrier)
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
   const pmUsers = users.filter((u) => u.role === 'pm')
@@ -160,6 +152,14 @@ export function JobListView({ tab }: Props) {
       : tab === 'spare-parts'
       ? jobs.filter((j) => isSpareJob(j, config) && j.status !== 'shipped')
       : jobs.filter((j) => !isSpareJob(j, config) && j.status !== 'shipped')
+
+  if (tab === 'archive' && tabFiltered.length === 0) {
+    return (
+      <p className="text-slate-500 text-sm mt-6">
+        No archived jobs yet. Jobs marked as <span className="text-green-400">Shipped</span> will appear here.
+      </p>
+    )
+  }
 
   // Step 2: user filter (spare-parts and archive always show all jobs unfiltered)
   let filtered: BoardJob[]

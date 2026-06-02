@@ -368,7 +368,7 @@ export function deleteNote(jobNumber: string, noteId: string, actor: Actor): { o
 function deepMergeConfig(base: BoardConfig, override: Partial<BoardConfig>): BoardConfig {
   return {
     spareCarrier: override.spareCarrier ?? base.spareCarrier,
-    superUser: override.superUser ?? base.superUser,
+    superUser: override.superUser || base.superUser,
     statusColors: {
       ...base.statusColors,
       ...(override.statusColors ?? {}),
@@ -425,6 +425,9 @@ export function getMergedJobs(): BoardJob[] {
 // ---------------------------------------------------------------------------
 // getDerivedUsers
 // ---------------------------------------------------------------------------
+// Jon Shantry is a permanent user — always present regardless of config or import
+const PERMANENT_SUPER = 'Jon Shantry'
+
 export function getDerivedUsers(config: BoardConfig): BoardUser[] {
   const jobsFile = loadJobsFile()
   const jobs = jobsFile?.jobs ?? []
@@ -443,15 +446,16 @@ export function getDerivedUsers(config: BoardConfig): BoardUser[] {
 
   const users: BoardUser[] = []
 
-  // Super user always first
-  users.push({
-    id: makeId(config.superUser),
-    name: config.superUser,
-    role: 'super',
-  })
+  // Permanent super user — always first, always present
+  users.push({ id: makeId(PERMANENT_SUPER), name: PERMANENT_SUPER, role: 'super' })
 
-  // Collect all non-super entries, deduplicate by name
-  const seen = new Set<string>([config.superUser])
+  // Configured super user (if different from permanent and non-empty)
+  const seen = new Set<string>([PERMANENT_SUPER])
+  const configuredSuper = config.superUser?.trim()
+  if (configuredSuper && configuredSuper !== PERMANENT_SUPER) {
+    seen.add(configuredSuper)
+    users.push({ id: makeId(configuredSuper), name: configuredSuper, role: 'super' })
+  }
   const rest: BoardUser[] = []
 
   for (const name of pmNames) {

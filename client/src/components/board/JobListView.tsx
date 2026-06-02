@@ -26,17 +26,61 @@ export function JobListView({ tab }: Props) {
   const [spareGearOpen, setSpareGearOpen] = useState(false)
   const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const suppressScrollReset = useRef(false)
 
-  // Pre-populate search from ?job= param set by calendar event click
+  // Session storage keys scoped to tab + user so tabs and users are independent
+  const userId = activeUser?.id ?? 'none'
+  const scrollKey = `board-scroll-${tab}-${userId}`
+  const searchKey = `board-search-${tab}-${userId}`
+  const showAllKey = `board-showall-${tab}-${userId}`
+
+  // Restore scroll + search + showAll on mount; ?job= param takes priority over saved state
   useEffect(() => {
     const jobParam = searchParams.get('job')
     if (jobParam) {
       setInputValue(jobParam)
       setSearch(jobParam)
       setSearchParams({}, { replace: true })
+      return
+    }
+    const savedSearch = sessionStorage.getItem(searchKey) ?? ''
+    const savedShowAll = sessionStorage.getItem(showAllKey) === 'true'
+    if (savedSearch) {
+      suppressScrollReset.current = true
+      setInputValue(savedSearch)
+      setSearch(savedSearch)
+    }
+    if (savedShowAll) setShowAll(true)
+    const savedScroll = sessionStorage.getItem(scrollKey)
+    if (savedScroll) {
+      // Delay so the restored search + rendered list settle before scrolling
+      const t = setTimeout(() => {
+        const el = document.getElementById('board-scroll')
+        if (el) el.scrollTop = Number(savedScroll)
+      }, 120)
+      return () => clearTimeout(t)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Persist search when committed
+  useEffect(() => {
+    sessionStorage.setItem(searchKey, search)
+  }, [search, searchKey])
+
+  // Persist showAll
+  useEffect(() => {
+    sessionStorage.setItem(showAllKey, String(showAll))
+  }, [showAll, showAllKey])
+
+  // Persist scroll position
+  useEffect(() => {
+    const el = document.getElementById('board-scroll')
+    if (!el) return
+    const onScroll = () => sessionStorage.setItem(scrollKey, String(el.scrollTop))
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [scrollKey])
 
   // Refetch fresh data whenever the active user changes
   // (local state resets are handled by key={activeUser?.id} on the route)
@@ -44,8 +88,9 @@ export function JobListView({ tab }: Props) {
     queryClient.invalidateQueries({ queryKey: ['board'] })
   }, [activeUser?.id])
 
-  // Scroll to top before paint whenever the committed search changes
+  // Scroll to top on new committed search (suppressed when restoring saved search)
   useLayoutEffect(() => {
+    if (suppressScrollReset.current) { suppressScrollReset.current = false; return }
     const el = document.getElementById('board-scroll')
     if (el) el.scrollTop = 0
   }, [search])

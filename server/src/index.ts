@@ -33,7 +33,8 @@ function validateEnv(): void {
   }
 
   if (isProd && !process.env.CORS_ORIGIN) {
-    missing.push('CORS_ORIGIN (required in production)');
+    // Default to same-origin localhost; kiosk is always served from port 3001.
+    process.env.CORS_ORIGIN = 'http://localhost:3001';
   }
 
   if (missing.length > 0) {

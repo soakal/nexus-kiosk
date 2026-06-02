@@ -8,7 +8,7 @@ import { isSpareJob } from './boardColors'
 import { BoardJob } from '../../types/board'
 
 interface Props {
-  tab: 'project' | 'spare-parts'
+  tab: 'project' | 'spare-parts' | 'archive'
 }
 
 const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
@@ -138,20 +138,32 @@ export function JobListView({ tab }: Props) {
     )
   }
 
+  if (tab === 'archive' && tabFiltered.length === 0) {
+    return (
+      <p className="text-slate-500 text-sm mt-6">
+        No archived jobs yet. Jobs marked as <span className="text-green-400">Shipped</span> will appear here.
+      </p>
+    )
+  }
+
   const spare = norm(config.spareCarrier)
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
   const pmUsers = users.filter((u) => u.role === 'pm')
 
-  // Step 1: tab filter — spare-parts jobs never appear in Projects (even for super user).
-  // Uses the shared isSpareJob(job, config) helper so list filtering matches BoardHeader.
+  // Step 1: tab filter
+  // - project: non-spare, non-shipped active jobs
+  // - spare-parts: spare jobs, non-shipped
+  // - archive: all shipped jobs regardless of spare/project
   const tabFiltered: BoardJob[] =
-    tab === 'spare-parts'
-      ? jobs.filter((j) => isSpareJob(j, config))
-      : jobs.filter((j) => !isSpareJob(j, config))
+    tab === 'archive'
+      ? jobs.filter((j) => j.status === 'shipped')
+      : tab === 'spare-parts'
+      ? jobs.filter((j) => isSpareJob(j, config) && j.status !== 'shipped')
+      : jobs.filter((j) => !isSpareJob(j, config) && j.status !== 'shipped')
 
-  // Step 2: user filter (spare-parts tab always shows all spare jobs unfiltered)
+  // Step 2: user filter (spare-parts and archive always show all jobs unfiltered)
   let filtered: BoardJob[]
-  if (tab === 'spare-parts' || !activeUser || isSuper || showAll || activeUser.role === 'manual') {
+  if (tab === 'spare-parts' || tab === 'archive' || !activeUser || isSuper || showAll || activeUser.role === 'manual') {
     filtered = tabFiltered
   } else if (activeUser.role === 'pm') {
     filtered = tabFiltered.filter((j) => norm(j.pm) === norm(activeUser.name))
@@ -171,15 +183,16 @@ export function JobListView({ tab }: Props) {
       )
     : filtered
 
-  // Sort by effectiveShipDate asc, null dates to the end
+  // Archive: most recently shipped first. Other tabs: ascending by ship date, nulls last.
   const sorted = [...searched].sort((a, b) => {
     if (!a.effectiveShipDate && !b.effectiveShipDate) return 0
     if (!a.effectiveShipDate) return 1
     if (!b.effectiveShipDate) return -1
-    return a.effectiveShipDate.localeCompare(b.effectiveShipDate)
+    const cmp = a.effectiveShipDate.localeCompare(b.effectiveShipDate)
+    return tab === 'archive' ? -cmp : cmp
   })
 
-  const canToggle = tab !== 'spare-parts' && !!activeUser && !isSuper && activeUser.role !== 'manual'
+  const canToggle = tab !== 'spare-parts' && tab !== 'archive' && !!activeUser && !isSuper && activeUser.role !== 'manual'
   const spareNotConfigured = tab === 'spare-parts' && !spare
 
   return (

@@ -94,6 +94,7 @@ eventsRouter.get(
 
         for (const job of boardJobs) {
           if (!job.effectiveShipDate) continue;
+          if (job.status === 'shipped') continue;
           const pm = job.pm ?? '';
           const pmDisplay = pm.includes('@') ? pm.split('@')[0] : pm;
           const customer = job.customer ?? '';

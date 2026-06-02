@@ -9,11 +9,13 @@ export function BoardHeader() {
   const { users } = useBoardUsers()
   const { activeUser, setActiveUser } = useAppStore()
 
-  const projectJobs = jobs.filter((j) => !isSpareJob(j, config))
-  const spareJobs = jobs.filter((j) => isSpareJob(j, config))
+  const projectJobs = jobs.filter((j) => !isSpareJob(j, config) && j.status !== 'shipped')
+  const spareJobs = jobs.filter((j) => isSpareJob(j, config) && j.status !== 'shipped')
+  const archiveJobs = jobs.filter((j) => j.status === 'shipped')
 
   const projectColor = tabColor(projectJobs, config)
   const spareColor = tabColor(spareJobs, config)
+  const archiveColor = config.statusColors.shipped
   const usersColor = '#3b82f6'
 
   const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -87,6 +89,20 @@ export function BoardHeader() {
           }
         >
           Spare Parts
+        </NavLink>
+
+        <NavLink
+          to="/board/archive"
+          className={({ isActive }) =>
+            `px-3 py-2 text-sm font-medium rounded-t transition-colors ${
+              isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+            }`
+          }
+          style={({ isActive }) =>
+            isActive ? { borderBottom: `2px solid ${archiveColor}`, backgroundColor: archiveColor + '18' } : {}
+          }
+        >
+          Archive{archiveJobs.length > 0 ? ` (${archiveJobs.length})` : ''}
         </NavLink>
 
         <NavLink

@@ -201,6 +201,14 @@ function AppInner() {
             }
           />
           <Route
+            path="archive"
+            element={
+              <Suspense fallback={null}>
+                <JobListView key={activeUser?.id ?? 'none'} tab="archive" />
+              </Suspense>
+            }
+          />
+          <Route
             path="users"
             element={
               <Suspense fallback={null}>

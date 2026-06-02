@@ -163,13 +163,12 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       raw === 'ship from vrsi'
     ) {
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i
-    } else if (raw === 'status') {
+    } else if (raw.includes('status')) {
       if (colMap.status === null) colMap.status = i
     }
   }
 
   const warnings: string[] = []
-  // status is optional — don't warn if missing, just leave as null
   const fieldNames: Array<keyof ColumnMap> = [
     'jobNumber',
     'pm',
@@ -183,6 +182,9 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
     if (colMap[field] === null) {
       warnings.push(`Column not found for field: ${field}`)
     }
+  }
+  if (colMap.status === null) {
+    warnings.push('Status column not found — shipped jobs will not be auto-archived')
   }
 
   return { colMap, warnings }

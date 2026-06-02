@@ -119,17 +119,16 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
     let sourceFile: string
     let warnings: string[] = []
 
+    let shippedApplied = 0
+
     if (req.file) {
       const result = parseXlsm(req.file.buffer, req.file.originalname)
       jobs = result.jobs
       warnings = result.warnings
       sourceFile = req.file.originalname
-      // Apply statuses read from the spreadsheet (e.g. "Shipped") to board-state
-      // so jobs already marked shipped in the source file go straight to Archive.
-      if (Object.keys(result.importedStatuses).length > 0) {
-        for (const [jobNumber, status] of Object.entries(result.importedStatuses)) {
-          await setJobStatus(jobNumber, status)
-        }
+      for (const [jobNumber, status] of Object.entries(result.importedStatuses)) {
+        await setJobStatus(jobNumber, status)
+        shippedApplied++
       }
     } else if (Array.isArray(req.body.jobs)) {
       const { jobs: validated, errors, importedStatuses } = validateJobsArray(req.body.jobs)
@@ -141,6 +140,7 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       sourceFile = 'manual-import'
       for (const [jobNumber, status] of Object.entries(importedStatuses)) {
         await setJobStatus(jobNumber, status)
+        shippedApplied++
       }
     } else {
       res.status(400).json({ error: 'No file or jobs array provided' })
@@ -148,7 +148,7 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
     }
 
     saveJobsFile(jobs, sourceFile)
-    res.json({ imported: jobs.length, warnings })
+    res.json({ imported: jobs.length, shippedApplied, warnings })
   } catch (err: unknown) {
     res.status(500).json({ error: (err as Error).message })
   }

@@ -16,7 +16,7 @@ export default function ImportView() {
     importJobs.mutate(selectedFile)
   }
 
-  const importResult = importJobs.data as { imported: number; warnings: string[] } | undefined
+  const importResult = importJobs.data as { imported: number; shippedApplied: number; warnings: string[] } | undefined
   const importError = importJobs.error as Error | null
 
   return (
@@ -56,6 +56,11 @@ export default function ImportView() {
           <div className="pt-1">
             <p className="text-green-400 text-sm font-medium">
               ✓ Imported {importResult.imported} job{importResult.imported !== 1 ? 's' : ''}
+              {importResult.shippedApplied > 0 && (
+                <span className="ml-2 text-slate-400">
+                  ({importResult.shippedApplied} archived as shipped)
+                </span>
+              )}
             </p>
             {importResult.warnings.length > 0 && (
               <ul className="mt-2 list-disc list-inside text-amber-400 text-xs space-y-0.5">

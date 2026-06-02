@@ -75,7 +75,7 @@ export default function UsersView() {
 
   const handleSaveSpareCarrier = () => {
     updateConfig.mutate(
-      { spareCarrier: spareCarrierInput.trim() },
+      { spareCarrier: spareCarrierInput.trim().toLowerCase() },
       {
         onSuccess: () => {
           setSpareSavedFlash(true)

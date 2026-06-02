@@ -9,6 +9,8 @@ interface Props {
   tab: 'project' | 'spare-parts'
 }
 
+const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
+
 export function JobListView({ tab }: Props) {
   const { jobs, isLoading } = useBoardJobs()
   const { config } = useBoardConfig()
@@ -61,16 +63,17 @@ export function JobListView({ tab }: Props) {
     )
   }
 
-  const isSuper = activeUser?.name === config.superUser
+  const spare = norm(config.spareCarrier)
+  const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
 
   // Step 1: tab filter (super user bypasses — sees all jobs in both tabs)
   let tabFiltered: BoardJob[]
   if (isSuper) {
     tabFiltered = jobs
   } else if (tab === 'spare-parts') {
-    tabFiltered = jobs.filter((j) => j.pm === config.spareCarrier)
+    tabFiltered = jobs.filter((j) => norm(j.pm) === spare)
   } else {
-    tabFiltered = jobs.filter((j) => j.pm !== config.spareCarrier)
+    tabFiltered = jobs.filter((j) => norm(j.pm) !== spare)
   }
 
   // Step 2: user filter
@@ -78,9 +81,9 @@ export function JobListView({ tab }: Props) {
   if (!activeUser || isSuper || showAll || activeUser.role === 'manual') {
     filtered = tabFiltered
   } else if (activeUser.role === 'pm') {
-    filtered = tabFiltered.filter((j) => j.pm === activeUser.name)
+    filtered = tabFiltered.filter((j) => norm(j.pm) === norm(activeUser.name))
   } else if (activeUser.role === 'materials') {
-    filtered = tabFiltered.filter((j) => j.materialsManager === activeUser.name)
+    filtered = tabFiltered.filter((j) => norm(j.materialsManager) === norm(activeUser.name))
   } else {
     filtered = tabFiltered
   }
@@ -107,8 +110,8 @@ export function JobListView({ tab }: Props) {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-[#0f1117] -mt-6 pt-6 pb-3">
-        {/* Search row */}
+      {/* Sticky search bar — pt-6 provides the top spacing (main has no top padding) */}
+      <div className="sticky top-0 z-20 bg-[#0f1117] pt-6 pb-3 mb-3">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -170,13 +173,15 @@ export function JobListView({ tab }: Props) {
         </div>
       </div>
 
-      {/* Job list */}
+      {/* key={search} forces the list to remount on every committed search */}
       {sorted.length === 0 ? (
         <p className="text-slate-500 text-sm mt-2">No jobs found.</p>
       ) : (
-        sorted.map((job) => (
-          <JobCard key={job.jobNumber} job={job} activeUser={activeUser} config={config} />
-        ))
+        <div key={search}>
+          {sorted.map((job) => (
+            <JobCard key={job.jobNumber} job={job} activeUser={activeUser} config={config} />
+          ))}
+        </div>
       )}
     </div>
   )

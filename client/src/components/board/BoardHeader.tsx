@@ -9,8 +9,9 @@ export function BoardHeader() {
   const { users } = useBoardUsers()
   const { activeUser, setActiveUser } = useAppStore()
 
-  const projectJobs = jobs.filter((j) => j.pm !== config.spareCarrier)
-  const spareJobs = jobs.filter((j) => j.pm === config.spareCarrier)
+  const spare = (config.spareCarrier ?? '').trim().toLowerCase()
+  const projectJobs = jobs.filter((j) => (j.pm ?? '').trim().toLowerCase() !== spare)
+  const spareJobs = jobs.filter((j) => (j.pm ?? '').trim().toLowerCase() === spare)
 
   const projectColor = tabColor(projectJobs, config)
   const spareColor = tabColor(spareJobs, config)

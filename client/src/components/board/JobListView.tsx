@@ -96,14 +96,18 @@ export function JobListView({ tab }: Props) {
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
   const pmUsers = users.filter((u) => u.role === 'pm')
 
-  // Step 1: tab filter — spare-parts always filters by spare carrier (even super user)
+  // A job is a spare-parts job if its PM matches the spare carrier OR its job number starts with 'sp'
+  const isSpareJob = (j: BoardJob) =>
+    norm(j.pm) === spare || j.jobNumber.toLowerCase().startsWith('sp')
+
+  // Step 1: tab filter — spare-parts jobs never appear in Projects (even for super user)
   let tabFiltered: BoardJob[]
   if (tab === 'spare-parts') {
-    tabFiltered = jobs.filter((j) => norm(j.pm) === spare)
+    tabFiltered = jobs.filter(isSpareJob)
   } else if (isSuper) {
-    tabFiltered = jobs
+    tabFiltered = jobs.filter((j) => !isSpareJob(j))
   } else {
-    tabFiltered = jobs.filter((j) => norm(j.pm) !== spare)
+    tabFiltered = jobs.filter((j) => !isSpareJob(j))
   }
 
   // Step 2: user filter (spare-parts tab always shows all spare jobs unfiltered)

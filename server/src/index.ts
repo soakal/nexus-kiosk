@@ -60,6 +60,12 @@ if (existsSync(path.join(clientDistPath, 'index.html'))) {
   app.get('*', (_req: Request, res: Response) => {
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
+} else if (process.env.NODE_ENV !== 'production') {
+  // Dev mode without a built client: redirect SPA routes to the Vite dev server
+  // so localhost:3001/board works the same as localhost:5173/board
+  app.get('*', (req: Request, res: Response) => {
+    res.redirect(`http://localhost:5173${req.path}`);
+  });
 }
 
 // Error handler must be last

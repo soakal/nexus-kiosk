@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -12,15 +13,16 @@ export function JobListView({ tab }: Props) {
   const { jobs, isLoading } = useBoardJobs()
   const { config } = useBoardConfig()
   const { activeUser } = useAppStore()
+  const [showAll, setShowAll] = useState(false)
+
+  // Reset to "my jobs" whenever the active user changes
+  useEffect(() => { setShowAll(false) }, [activeUser?.id])
 
   if (isLoading) {
     return (
       <div>
         {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="animate-pulse bg-slate-800 rounded-xl h-32 mb-3"
-          />
+          <div key={i} className="animate-pulse bg-slate-800 rounded-xl h-32 mb-3" />
         ))}
       </div>
     )
@@ -30,22 +32,34 @@ export function JobListView({ tab }: Props) {
     return (
       <p className="text-slate-500 text-sm">
         No jobs imported yet. Go to the{' '}
-        <Link to="/board/users" className="text-blue-400 hover:text-blue-300 underline">
-          Users tab
+        <Link to="/board/import" className="text-blue-400 hover:text-blue-300 underline">
+          Import tab
         </Link>{' '}
-        to import an XLSM file.
+        to upload an XLSM file.
       </p>
     )
   }
 
-  // Filter
-  let filtered: BoardJob[]
-  if (activeUser?.name === config.superUser) {
-    filtered = jobs
-  } else if (tab === 'spare-parts') {
-    filtered = jobs.filter((j) => j.pm === config.spareCarrier)
+  const isSuper = activeUser?.name === config.superUser
+
+  // Step 1: apply tab filter
+  let tabFiltered: BoardJob[]
+  if (tab === 'spare-parts') {
+    tabFiltered = jobs.filter((j) => j.pm === config.spareCarrier)
   } else {
-    filtered = jobs.filter((j) => j.pm !== config.spareCarrier)
+    tabFiltered = jobs.filter((j) => j.pm !== config.spareCarrier)
+  }
+
+  // Step 2: apply user filter (super sees all; manual/extra role sees all; no user = see all)
+  let filtered: BoardJob[]
+  if (!activeUser || isSuper || showAll || activeUser.role === 'manual') {
+    filtered = tabFiltered
+  } else if (activeUser.role === 'pm') {
+    filtered = tabFiltered.filter((j) => j.pm === activeUser.name)
+  } else if (activeUser.role === 'materials') {
+    filtered = tabFiltered.filter((j) => j.materialsManager === activeUser.name)
+  } else {
+    filtered = tabFiltered
   }
 
   // Sort by effectiveShipDate asc, null dates to the end
@@ -56,18 +70,45 @@ export function JobListView({ tab }: Props) {
     return a.effectiveShipDate.localeCompare(b.effectiveShipDate)
   })
 
-  if (sorted.length === 0) {
-    return <p className="text-slate-500 text-sm">No jobs in this category.</p>
-  }
+  // Whether the toggle is relevant for this user
+  const canToggle = !!activeUser && !isSuper && activeUser.role !== 'manual'
 
   return (
     <div>
-      <p className="text-slate-500 text-sm mb-4">
-        {sorted.length} job{sorted.length !== 1 ? 's' : ''} &middot; sorted by ship date
-      </p>
-      {sorted.map((job) => (
-        <JobCard key={job.jobNumber} job={job} activeUser={activeUser} config={config} />
-      ))}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-slate-500 text-sm">
+          {sorted.length} job{sorted.length !== 1 ? 's' : ''} &middot; sorted by ship date
+        </p>
+        {canToggle && (
+          <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setShowAll(false)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                !showAll ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              My Jobs
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                showAll ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All Jobs
+            </button>
+          </div>
+        )}
+      </div>
+      {sorted.length === 0 ? (
+        <p className="text-slate-500 text-sm">No jobs found.</p>
+      ) : (
+        sorted.map((job) => (
+          <JobCard key={job.jobNumber} job={job} activeUser={activeUser} config={config} />
+        ))
+      )}
     </div>
   )
 }

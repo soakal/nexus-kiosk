@@ -70,12 +70,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config }
   const [local, setLocal] = useState<AppConfig>({ ...config });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [zipInput, setZipInput] = useState("");
+  const [zipStatus, setZipStatus] = useState<{ type: "ok" | "error"; message: string } | null>(null);
+  const [zipLooking, setZipLooking] = useState(false);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     calendars: true, display: true, widgets: true, time: true, location: false, files: false,
   });
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setLocal({ ...config }); }, [config]);
+  useEffect(() => { setLocal({ ...config }); setZipInput(""); setZipStatus(null); }, [config]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -86,6 +89,29 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config }
 
   const toggleSection = (key: SectionKey) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const set = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => setLocal((prev) => ({ ...prev, [key]: value }));
+
+  const lookupZip = async () => {
+    const query = zipInput.trim();
+    if (!query) return;
+    setZipLooking(true);
+    setZipStatus(null);
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
+      const data = await res.json();
+      if (data.results?.length) {
+        const { latitude, longitude, name, admin1 } = data.results[0];
+        set("weatherLat", latitude);
+        set("weatherLon", longitude);
+        setZipStatus({ type: "ok", message: `${name}${admin1 ? `, ${admin1}` : ""}` });
+      } else {
+        setZipStatus({ type: "error", message: "ZIP code not found" });
+      }
+    } catch {
+      setZipStatus({ type: "error", message: "Lookup failed — check connection" });
+    } finally {
+      setZipLooking(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -184,13 +210,33 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config }
           <div className="border-b border-white/5 pb-4">
             <SectionHeader label="Location" isOpen={openSections.location} onToggle={() => toggleSection("location")} />
             {openSections.location && (
-              <div className="mt-2 space-y-0.5">
-                <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-                  Coordinates for weather. Find yours at{" "}
-                  <a href="https://www.latlong.net" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">latlong.net</a>.
-                </p>
-                <TextField label="Latitude" value={local.weatherLat !== null ? String(local.weatherLat) : ""} onChange={(v) => set("weatherLat", v === "" ? null : parseFloat(v))} placeholder="e.g. 40.7128" type="number" />
-                <TextField label="Longitude" value={local.weatherLon !== null ? String(local.weatherLon) : ""} onChange={(v) => set("weatherLon", v === "" ? null : parseFloat(v))} placeholder="e.g. -74.0060" type="number" />
+              <div className="mt-2">
+                <div className="flex items-center gap-2 py-1.5">
+                  <span className="text-sm text-slate-300 flex-shrink-0">ZIP Code</span>
+                  <input
+                    type="text"
+                    value={zipInput}
+                    onChange={(e) => { setZipInput(e.target.value); setZipStatus(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") lookupZip(); }}
+                    placeholder="e.g. 10001"
+                    maxLength={10}
+                    className="w-28 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1.5 text-right focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors placeholder-slate-600"
+                  />
+                  <button type="button" onClick={lookupZip} disabled={zipLooking || !zipInput.trim()}
+                    className="rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 px-3 py-1.5 text-xs font-medium text-white transition-colors">
+                    {zipLooking ? "..." : "Look up"}
+                  </button>
+                </div>
+                {zipStatus && (
+                  <p className={`text-[11px] mt-1 ${zipStatus.type === "ok" ? "text-green-400" : "text-red-400"}`}>
+                    {zipStatus.type === "ok" ? `✓ ${zipStatus.message}` : `✗ ${zipStatus.message}`}
+                  </p>
+                )}
+                {local.weatherLat !== null && local.weatherLon !== null && zipStatus?.type !== "ok" && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Current: {local.weatherLat.toFixed(4)}, {local.weatherLon.toFixed(4)}
+                  </p>
+                )}
               </div>
             )}
           </div>

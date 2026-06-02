@@ -3,7 +3,7 @@ import { loadTokens, saveTokens, TokenData } from './tokenStore.js';
 import { logger } from '../utils/logger.js';
 
 let currentAccessToken: string | null = null;
-const isTestMode = process.env.DISABLE_AZURE === 'true';
+let isTestMode = process.env.DISABLE_AZURE === 'true';
 
 export function getCurrentAccessToken(): string | null {
   return currentAccessToken;
@@ -78,6 +78,15 @@ export async function initializeTokens(): Promise<boolean> {
 
   const stored: TokenData | null = loadTokens();
   if (!stored) {
+    // In dev with no Azure credentials configured, auto-enable test mode so the
+    // UI shows mock data without requiring DISABLE_AZURE=true to be set manually.
+    if (process.env.NODE_ENV !== 'production' && !process.env.AZURE_TENANT_ID) {
+      logger.warn('Dev mode: no Azure credentials found — auto-enabling test mode');
+      isTestMode = true;
+      process.env.DISABLE_AZURE = 'true';
+      currentAccessToken = 'dev-auto-mock';
+      return true;
+    }
     logger.warn('No stored tokens found — authentication required');
     return false;
   }

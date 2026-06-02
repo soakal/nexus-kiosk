@@ -4,6 +4,7 @@ import { listCalendars, GraphCalendar } from '../graph/calendars.js';
 import { isAuthenticated } from '../auth/tokenRefresher.js';
 import { getConfig } from '../services/configService.js';
 import { logger } from '../utils/logger.js';
+import { getMergedJobs, getBoardConfig } from '../services/boardService.js';
 
 export const eventsRouter = Router();
 
@@ -80,6 +81,34 @@ eventsRouter.get(
           calendarColor: cal?.hexColor ?? '#3b82f6',
         };
       });
+
+      // Append board job ship dates as all-day calendar events
+      try {
+        const boardJobs = getMergedJobs();
+        const boardConfig = getBoardConfig();
+        const statusColors: Record<string, string> = boardConfig.statusColors as Record<string, string>;
+        const statusLabels: Record<string, string> = {
+          none: 'Not Started', in_progress: 'In Progress',
+          ready_to_ship: 'Ready to Ship', shipped: 'Shipped',
+        };
+
+        for (const job of boardJobs) {
+          if (!job.effectiveShipDate) continue;
+          normalized.push({
+            id: `board-ship-${job.jobNumber}`,
+            subject: `Ship: #${job.jobNumber} — ${job.customer}`,
+            startDateTime: `${job.effectiveShipDate}T00:00:00`,
+            endDateTime: `${job.effectiveShipDate}T23:59:59`,
+            isAllDay: true,
+            bodyPreview: `${job.customer} · ${statusLabels[job.status] ?? job.status}`,
+            calendarId: 'board-jobs',
+            calendarName: 'Ship Dates',
+            calendarColor: statusColors[job.status] ?? '#475569',
+          });
+        }
+      } catch {
+        // Board data may not exist yet — skip silently
+      }
 
       res.json(normalized);
     } catch (err) {

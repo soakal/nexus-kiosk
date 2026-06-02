@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import {
   Calendar,
   dateFnsLocalizer,
-  SlotInfo,
   Event as RBCEvent,
 } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -246,7 +245,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         dayPropGetter={dayPropGetter}
         min={minTime}
         max={maxTime}
-        showCurrentTimeIndicator
         style={{ height: '100%' }}
         popup
         formats={{

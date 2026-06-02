@@ -1,4 +1,3 @@
-import React from 'react'
 import { JobStatus, STATUS_ORDER, DEFAULT_BOARD_CONFIG } from '../../types/board'
 import { statusLabel } from './boardColors'
 

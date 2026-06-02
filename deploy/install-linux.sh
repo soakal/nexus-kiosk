@@ -120,6 +120,16 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     [ -d "$INSTALL_DIR/.git" ] || die "No git checkout found at $INSTALL_DIR — run a full install first."
 
     cd "$INSTALL_DIR"
+
+    # Back up runtime state before the destructive reset. board/config JSON is
+    # normally untracked (survives reset --hard), but this is a safety net in
+    # case it ever becomes tracked or a stale local commit exists.
+    BACKUP_DIR="/var/backups/nexus-kiosk-$(date +%F-%H%M)"
+    as_root mkdir -p "$BACKUP_DIR" 2>/dev/null || true
+    as_root cp -f server/data/*.json "$BACKUP_DIR/" 2>/dev/null || true
+    as_root cp -f data/*.json "$BACKUP_DIR/" 2>/dev/null || true
+    log "Runtime state backed up to $BACKUP_DIR"
+
     log "Pulling latest from $REPO_BRANCH..."
     git fetch origin "$REPO_BRANCH"
     git reset --hard "origin/$REPO_BRANCH"

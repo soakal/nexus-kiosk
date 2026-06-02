@@ -11,7 +11,7 @@ import {
   addJobNote,
   deleteJobNote,
 } from '../api/boardApi';
-import { DEFAULT_BOARD_CONFIG, Job, JobStatus, BoardUser, Actor } from '../types/board';
+import { DEFAULT_BOARD_CONFIG, Job, JobStatus, Actor } from '../types/board';
 
 export function useBoardJobs() {
   const q = useQuery({

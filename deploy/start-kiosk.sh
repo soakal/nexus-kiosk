@@ -1,6 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
+# Resolve the X authority cookie. The systemd unit hardcodes
+# XAUTHORITY=/home/<user>/.Xauthority, which is correct for Raspberry Pi OS /
+# Debian lightdm autologin. On other setups lightdm stores the cookie elsewhere
+# (e.g. /var/run/lightdm/<user>/xauthority or /run/user/<uid>/...), so fall back
+# to auto-detection to avoid Chromium failing with "cannot open display :0".
+if [ -z "${XAUTHORITY:-}" ] || [ ! -f "${XAUTHORITY:-}" ]; then
+    DETECTED_XAUTH=$(find /var/run/lightdm /run/user /run/lightdm \
+        \( -name 'xauthority' -o -name 'Xauthority' -o -name '*.xauth' \) \
+        2>/dev/null | head -1)
+    if [ -n "$DETECTED_XAUTH" ]; then
+        export XAUTHORITY="$DETECTED_XAUTH"
+        echo "XAUTHORITY auto-detected at $XAUTHORITY"
+    else
+        echo "Warning: could not locate an X authority file; using XAUTHORITY=${XAUTHORITY:-<unset>}"
+    fi
+fi
+
 # Disable screen blanking
 xset s off -dpms s noblank
 

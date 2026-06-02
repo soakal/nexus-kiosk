@@ -32,3 +32,9 @@ Frontend: React 18 + Vite + Tailwind 3 + react-big-calendar + TanStack Query v5 
 
 ## Linux update (one command)
   NEXUS_UPDATE=1 curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/master/deploy/install-linux.sh | sudo bash
+
+## Project Board ("Projects")
+Self-contained job-tracking feature at the `/board` route. No Graph API / no auth required (user is chosen via a picker).
+Tabs/routes: `/board` (Project), `/board/spare-parts` (Spare Parts), `/board/users` (Users — picker + colors), `/board/import` (Import — XLSM import).
+Data persisted in server/data/{jobs,board-state,board-config}.json.
+WARNING: these three files MUST stay gitignored. deploy/auto-update.sh does a weekly `git reset --hard` (Sun 03:30 via nexus-kiosk-updater.timer); if any board data file is ever committed, the next update wipes all board notes/status. They are currently gitignored — keep them that way.

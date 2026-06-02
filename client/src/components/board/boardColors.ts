@@ -1,4 +1,4 @@
-import { JobStatus, STATUS_ORDER, BoardJob, BoardConfig, DEFAULT_BOARD_CONFIG } from '../../types/board'
+import { JobStatus, STATUS_ORDER, BoardJob, BoardConfig } from '../../types/board'
 
 export function worstStatus(jobs: BoardJob[]): JobStatus {
   const filtered = jobs.filter(job => job.status !== 'none')

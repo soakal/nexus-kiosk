@@ -3,6 +3,9 @@ dist/
 .env
 server/data/tokens.json
 server/data/config.json
+server/data/jobs.json
+server/data/board-state.json
+server/data/board-config.json
 server/logs/
 *.log
 client/dist/

@@ -55,14 +55,6 @@ const NumberField: React.FC<{ label: string; value: number; onChange: (v: number
   </div>
 );
 
-const TextField: React.FC<{ label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }> = ({ label, value, onChange, placeholder, type = "text" }) => (
-  <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-    <span className="text-sm text-slate-300 flex-shrink-0">{label}</span>
-    <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      className="w-36 rounded-lg bg-white/5 border border-white/10 text-sm text-slate-200 px-2 py-1.5 text-right focus:outline-none focus:border-blue-500/50 hover:border-white/20 transition-colors placeholder-slate-600" />
-  </div>
-);
-
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, config }) => {
   const { data: calendars = [] } = useCalendars(isOpen);
   const updateConfig = useUpdateConfig();

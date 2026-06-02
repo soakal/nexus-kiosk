@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
@@ -15,13 +15,12 @@ export function JobListView({ tab }: Props) {
   const { activeUser } = useAppStore()
   const [showAll, setShowAll] = useState(false)
   const [search, setSearch] = useState('')
-  const listTopRef = useRef<HTMLDivElement>(null)
 
   // Reset filters whenever the active user changes
   useEffect(() => { setShowAll(false); setSearch('') }, [activeUser?.id])
 
-  // Scroll to top whenever search changes — target by id for reliability
-  useEffect(() => {
+  // Scroll to top before paint so the filtered list is never seen at a stale position
+  useLayoutEffect(() => {
     const el = document.getElementById('board-scroll')
     if (el) el.scrollTop = 0
   }, [search])
@@ -93,7 +92,7 @@ export function JobListView({ tab }: Props) {
   const canToggle = !!activeUser && !isSuper && activeUser.role !== 'manual'
 
   return (
-    <div ref={listTopRef}>
+    <div>
       {/* Sticky search + controls bar.
           -mt-6 + pt-6 pulls the bar up over <main>'s py-6 top padding so cards
           scrolling underneath are fully masked by the bar's background. */}

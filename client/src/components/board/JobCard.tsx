@@ -31,6 +31,7 @@ export function JobCard({ job, activeUser, config }: Props) {
   const [pendingShipDate, setPendingShipDate] = useState<string | null>(job.effectiveShipDate)
 
   // Re-sync when saved values change (after successful Apply + refetch)
+  useEffect(() => { setNotesOpen(job.notes.length > 0) }, [job.notes.length])
   useEffect(() => { setPendingStatus(job.status) }, [job.status])
   useEffect(() => { setPendingShipDate(job.effectiveShipDate) }, [job.effectiveShipDate])
 

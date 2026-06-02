@@ -31,6 +31,7 @@ function AppInner() {
     isSettingsOpen,
     isFilesOpen,
     displayMode,
+    activeUser,
     setIsAuthenticated,
     setIsSettingsOpen,
     setIsFilesOpen,
@@ -187,7 +188,7 @@ function AppInner() {
             index
             element={
               <Suspense fallback={null}>
-                <JobListView tab="project" />
+                <JobListView key={activeUser?.id ?? 'none'} tab="project" />
               </Suspense>
             }
           />
@@ -195,7 +196,7 @@ function AppInner() {
             path="spare-parts"
             element={
               <Suspense fallback={null}>
-                <JobListView tab="spare-parts" />
+                <JobListView key={activeUser?.id ?? 'none'} tab="spare-parts" />
               </Suspense>
             }
           />

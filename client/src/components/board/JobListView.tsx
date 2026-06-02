@@ -26,12 +26,9 @@ export function JobListView({ tab }: Props) {
   const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Reset filters and refetch fresh data whenever the active user changes
+  // Refetch fresh data whenever the active user changes
+  // (local state resets are handled by key={activeUser?.id} on the route)
   useEffect(() => {
-    setShowAll(false)
-    setInputValue('')
-    setSearch('')
-    setSpareGearOpen(false)
     queryClient.invalidateQueries({ queryKey: ['board'] })
   }, [activeUser?.id])
 

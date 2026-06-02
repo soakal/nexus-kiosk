@@ -211,8 +211,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             Ctrl+F Files
           </button>
           <span>|</span>
-          <Link to="/board" className="flex items-center gap-1.5 bg-slate-700/60 hover:bg-slate-600 text-slate-200 px-3 py-1 rounded transition-colors text-xs font-medium">
-            <span>Projects</span>
+          <Link to="/board" className="hover:text-slate-400 transition-colors">
+            Projects
           </Link>
         </div>
       </footer>

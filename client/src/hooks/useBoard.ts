@@ -83,7 +83,10 @@ export function useSetJobStatus() {
   return useMutation({
     mutationFn: ({ jobNumber, status, actor }: { jobNumber: string; status: JobStatus; actor: Actor }) =>
       setJobStatus(jobNumber, status, actor),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['board', 'jobs'] });
+      qc.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 }
 
@@ -92,7 +95,10 @@ export function useSetJobShipDate() {
   return useMutation({
     mutationFn: ({ jobNumber, shipDateOverride, actor }: { jobNumber: string; shipDateOverride: string | null; actor: Actor }) =>
       setJobShipDate(jobNumber, shipDateOverride, actor),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['board', 'jobs'] });
+      qc.invalidateQueries({ queryKey: ['events'] });
+    },
   });
 }
 

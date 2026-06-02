@@ -71,12 +71,12 @@ export function JobListView({ tab }: Props) {
   // Unique PM names from the actual data for the spare-parts picker
   const pmUsers = users.filter((u) => u.role === 'pm')
 
-  // Step 1: tab filter (super user bypasses — sees all jobs in both tabs)
+  // Step 1: tab filter — spare-parts always filters by spare carrier (even super user)
   let tabFiltered: BoardJob[]
-  if (isSuper) {
-    tabFiltered = jobs
-  } else if (tab === 'spare-parts') {
+  if (tab === 'spare-parts') {
     tabFiltered = jobs.filter((j) => norm(j.pm) === spare)
+  } else if (isSuper) {
+    tabFiltered = jobs  // super user sees all project jobs
   } else {
     tabFiltered = jobs.filter((j) => norm(j.pm) !== spare)
   }
@@ -134,9 +134,10 @@ export function JobListView({ tab }: Props) {
               </option>
             ))}
           </select>
-          {spareNotConfigured && (
-            <span className="text-amber-400 text-xs shrink-0">⚠ Set a PM to filter</span>
-          )}
+          {spareNotConfigured
+            ? <span className="text-amber-400 text-xs shrink-0">⚠ Select a PM to filter this tab</span>
+            : <span className="text-slate-500 text-xs shrink-0">({tabFiltered.length} jobs)</span>
+          }
         </div>
       )}
 

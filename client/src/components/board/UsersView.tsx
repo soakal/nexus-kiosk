@@ -108,40 +108,32 @@ export default function UsersView() {
       <div className="py-4 px-1">
         <h3 className="text-slate-300 font-semibold text-sm mb-3">Who are you?</h3>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {users.map((user) => {
-            const isSelected = activeUser?.id === user.id
-            return (
-              <button
-                key={user.id}
-                onClick={() => handleSelectUser(user)}
-                className={[
-                  'bg-slate-800 rounded-lg p-3 cursor-pointer border-2 text-left transition-colors',
-                  isSelected
-                    ? 'border-blue-500'
-                    : 'border-transparent hover:border-slate-600',
-                ].join(' ')}
-              >
-                <p className="font-medium text-slate-200 text-sm">{user.name}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{roleLabel(user.role)}</p>
-                {user.role === 'super' && (
-                  <p className="text-amber-400 text-xs mt-1">👁 Sees everything</p>
-                )}
-              </button>
-            )
-          })}
-        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={activeUser?.id ?? ''}
+            onChange={(e) => {
+              const id = e.target.value
+              if (!id) { handleSelectUser(null); return }
+              const user = users.find((u) => u.id === id) ?? null
+              handleSelectUser(user)
+            }}
+            className="flex-1 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-200 px-3 py-2 focus:outline-none focus:border-blue-500/50 cursor-pointer"
+          >
+            <option value="">— Select your name —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
+            ))}
+          </select>
 
-        {activeUser && (
-          <div className="mt-3">
+          {activeUser && (
             <button
               onClick={() => setActiveUser(null)}
-              className="text-slate-500 hover:text-slate-300 text-xs border border-slate-700 rounded px-3 py-1 transition-colors"
+              className="text-slate-500 hover:text-slate-300 text-xs border border-slate-700 rounded px-3 py-2 transition-colors shrink-0"
             >
               Sign out
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── Section 2: Extra Users ───────────────────────────────────────────── */}

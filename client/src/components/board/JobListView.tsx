@@ -71,3 +71,5 @@ export function JobListView({ tab }: Props) {
     </div>
   )
 }
+
+export default JobListView

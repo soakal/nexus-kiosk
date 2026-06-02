@@ -11,3 +11,5 @@ export function BoardLayout() {
     </div>
   )
 }
+
+export default BoardLayout

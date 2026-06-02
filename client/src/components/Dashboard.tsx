@@ -185,9 +185,28 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
-      {/* Status bar — desktop only (keyboard hints) */}
+      {/* Status bar — desktop only (keyboard hints + display mode) */}
       <footer className="hidden md:flex flex-shrink-0 items-center justify-between border-t border-white/5 bg-black/20 px-5 py-1.5">
-        <img src="/logos/vrsi-icon-white.png" alt="VRSI" className="h-4 w-auto opacity-60" />
+        <div className="flex items-center gap-2">
+          <img src="/logos/vrsi-icon-white.png" alt="VRSI" className="h-4 w-auto opacity-60" />
+          {/* Display mode tabs */}
+          <div className="flex gap-1 ml-3">
+            {(['day', 'week', 'month'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onSetDisplayMode(mode)}
+                className={`px-2.5 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide transition-colors ${
+                  displayMode === mode
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-600 hover:text-slate-300'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-4 text-[11px] text-slate-600">
           <button
             type="button"

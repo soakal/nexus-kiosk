@@ -100,7 +100,7 @@ eventsRouter.get(
 
         for (const job of boardJobs) {
           if (!job.effectiveShipDate) continue;
-          if (job.status === 'shipped' || job.status === 'none') continue;
+          if (job.status === 'shipped') continue;
           if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
           const pm = job.pm ?? '';
           const pmDisplay = pm.includes('@') ? pm.split('@')[0] : pm;

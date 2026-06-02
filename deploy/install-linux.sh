@@ -147,6 +147,31 @@ if [ "${NEXUS_UPDATE:-}" = "1" ]; then
     as_root systemctl restart dashboard-backend.service
     as_root systemctl restart dashboard-kiosk.service 2>/dev/null || true
 
+    # Verify backend came up; retry up to 3 times if port was still held
+    local attempt=0
+    while [ $attempt -lt 3 ]; do
+        sleep 4
+        if systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
+            log "Backend running ✓"
+            break
+        fi
+        attempt=$((attempt + 1))
+        warn "Backend not active (attempt $attempt/3) — killing port 3001 and retrying..."
+        as_root fuser -k 3001/tcp 2>/dev/null || true
+        sleep 1
+        as_root systemctl restart dashboard-backend.service
+    done
+    if ! systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
+        sleep 4
+    fi
+    if systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
+        log "Backend running ✓"
+    else
+        err "Backend failed to start after 3 attempts."
+        err "Last 30 journal lines:"
+        journalctl -u dashboard-backend.service -n 30 --no-pager 2>/dev/null || true
+    fi
+
     log "=== Update complete ==="
     exit 0
 fi

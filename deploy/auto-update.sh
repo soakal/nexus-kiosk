@@ -43,4 +43,32 @@ sudo fuser -k 3001/tcp 2>/dev/null || true
 sudo systemctl restart dashboard-backend.service
 sudo systemctl restart dashboard-kiosk.service 2>/dev/null || true
 
+# Verify backend came up; retry up to 3 times if port was still held
+verify_backend() {
+    local attempt=0
+    while [ $attempt -lt 3 ]; do
+        sleep 4
+        if systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend running ✓"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend not active (attempt $attempt/3) — killing port 3001 and retrying..."
+        sudo fuser -k 3001/tcp 2>/dev/null || true
+        sleep 1
+        sudo systemctl restart dashboard-backend.service
+    done
+    # Final check
+    sleep 4
+    if systemctl is-active --quiet dashboard-backend.service 2>/dev/null; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backend running ✓"
+        return 0
+    fi
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Backend failed to start after 3 attempts." >&2
+    echo "--- Last 30 journal lines ---" >&2
+    journalctl -u dashboard-backend.service -n 30 --no-pager 2>/dev/null || true
+    return 1
+}
+verify_backend
+
 echo "Update complete. Services restarted."

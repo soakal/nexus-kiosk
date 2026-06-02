@@ -92,9 +92,16 @@ eventsRouter.get(
           ready_to_ship: 'Ready to Ship', shipped: 'Shipped',
         };
 
+        // Only show jobs whose ship date falls within the requested view range,
+        // and only actionable statuses (in_progress / ready_to_ship). Shipped
+        // jobs go to the Archive tab; none-status jobs with a date add noise.
+        const rangeStart = startParam.slice(0, 10); // 'YYYY-MM-DD'
+        const rangeEnd = endParam.slice(0, 10);
+
         for (const job of boardJobs) {
           if (!job.effectiveShipDate) continue;
-          if (job.status === 'shipped') continue;
+          if (job.status === 'shipped' || job.status === 'none') continue;
+          if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
           const pm = job.pm ?? '';
           const pmDisplay = pm.includes('@') ? pm.split('@')[0] : pm;
           const customer = job.customer ?? '';

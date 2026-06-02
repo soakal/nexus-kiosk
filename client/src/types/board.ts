@@ -46,7 +46,7 @@ export interface Actor {
 }
 
 export const DEFAULT_BOARD_CONFIG: BoardConfig = {
-  spareCarrier: "Matt O'Neil",
+  spareCarrier: 'matto@vrs-inc.com',
   superUser: 'Jon Shantry',
   statusColors: {
     none: '#475569',

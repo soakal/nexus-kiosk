@@ -29,65 +29,49 @@ function addDays(d: Date, n: number): Date {
   return result;
 }
 
-interface GroupedEvent {
-  event: CalendarEvent;
-  isActive: boolean;
-}
-
 const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
   const now = new Date();
   const todayStart = startOfDay(now);
   const tomorrowStart = addDays(todayStart, 1);
   const tomorrowEnd = addDays(todayStart, 2);
 
-  const todayEvents: GroupedEvent[] = [];
-  const tomorrowEvents: GroupedEvent[] = [];
+  const todayEvents: CalendarEvent[] = [];
+  const tomorrowEvents: CalendarEvent[] = [];
 
   for (const ev of events) {
     const start = new Date(ev.startDateTime);
     const end = new Date(ev.endDateTime);
 
     if (isSameDay(start, now) || (ev.isAllDay && start >= todayStart && start < tomorrowStart)) {
-      // Today's remaining (include all-day) - skip past non-all-day
       if (ev.isAllDay || end > now) {
-        const isActive = !ev.isAllDay && start <= now && end > now;
-        todayEvents.push({ event: ev, isActive });
+        todayEvents.push(ev);
       }
     } else if (start >= tomorrowStart && start < tomorrowEnd) {
-      tomorrowEvents.push({ event: ev, isActive: false });
+      tomorrowEvents.push(ev);
     }
   }
 
-  // Sort: all-day first, then by start time
-  const sortGroup = (group: GroupedEvent[]) =>
+  const sortGroup = (group: CalendarEvent[]) =>
     group.sort((a, b) => {
-      if (a.event.isAllDay && !b.event.isAllDay) return -1;
-      if (!a.event.isAllDay && b.event.isAllDay) return 1;
-      return new Date(a.event.startDateTime).getTime() - new Date(b.event.startDateTime).getTime();
+      if (a.isAllDay && !b.isAllDay) return -1;
+      if (!a.isAllDay && b.isAllDay) return 1;
+      return new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime();
     });
 
   sortGroup(todayEvents);
   sortGroup(tomorrowEvents);
 
-  const renderEvent = ({ event, isActive }: GroupedEvent) => (
+  const renderEvent = (event: CalendarEvent) => (
     <div
       key={event.id}
-      className={`flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors ${
-        isActive
-          ? 'bg-white/10 ring-1 ring-white/20'
-          : 'hover:bg-white/5'
-      }`}
+      className="flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
     >
       <span
         className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 rounded-full"
         style={{ backgroundColor: event.calendarColor || '#3b82f6' }}
       />
       <div className="min-w-0 flex-1">
-        <p
-          className={`truncate text-sm leading-tight ${
-            isActive ? 'font-semibold text-white' : 'font-medium text-slate-200'
-          }`}
-        >
+        <p className="truncate text-sm leading-tight font-medium text-slate-200">
           {event.subject}
         </p>
         <p className="text-xs text-slate-400 mt-0.5">
@@ -97,11 +81,6 @@ const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
           {event.location ? ` · ${event.location}` : ''}
         </p>
       </div>
-      {isActive && (
-        <span className="flex-shrink-0 rounded-full bg-blue-500/30 px-1.5 py-0.5 text-[10px] text-blue-300 font-medium">
-          Now
-        </span>
-      )}
     </div>
   );
 

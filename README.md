@@ -227,7 +227,7 @@ Full list: [.env.example](.env.example).
 | Remote | URL |
 |--------|-----|
 | `origin` | https://github.com/soakal/nexus-kiosk.git |
-| `gitea` | http://10.10.10.68:3000/briank/nexus-kiosk.git (LAN) |
+| `gitea` | http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git (LAN org `vrsi-pc-build`; IP: `10.10.10.68`) |
 
 ```bash
 git push origin master

@@ -117,7 +117,7 @@ Port 3001 conflicts: `/opt/tender/backend` has stolen the port before — `vm-de
 
 ## Git remotes
 - `origin` → https://github.com/soakal/nexus-kiosk.git (push/pull)
-- `gitea` → http://10.10.10.68:3000/briank/nexus-kiosk.git (LAN; hostname `vrsi-git` / `vrsi-git.vrsi.local` on internal DNS)
+- `gitea` → http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git (LAN; migrated from `briank/nexus-kiosk`)
 
 Do not add a second push URL on `origin` for Gitea — use `git push gitea master` separately.
 
@@ -131,7 +131,7 @@ Do not add a second push URL on `origin` for Gitea — use `git push gitea maste
 - Cancelled rows skipped; Ready to Ship / Build / Parts on order status mapping
 - Calendar spare-job tab routing; PM on ship-date events; week view `work_week` removed
 - Author-only note edit (`PATCH`) and delete; inline note errors in UI
-- `vm-fix.py` / `vm-deploy.py` helpers; Gitea remote uses `10.10.10.68`
+- `vm-fix.py` / `vm-deploy.py` helpers; Gitea `http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git`
 
 ## Recently fixed (multi-agent review 2026-06)
 - Ship-date import: wrong column stolen by multiline header; parseDateValue returned garbage strings

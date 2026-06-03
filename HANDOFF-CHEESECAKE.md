@@ -79,7 +79,7 @@ NEXUS_UPDATE=1 curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/m
 
 There's also a **weekly auto-update** (systemd timer `nexus-kiosk-updater.timer`, Sun 03:30) that runs `deploy/auto-update.sh`, which does a `git reset --hard` + rebuild. Both install and auto-update now run a connectivity preflight first and skip/abort cleanly when offline.
 
-Active test VM: **10.10.11.24** (user `vrsi`, install `/home/vrsi/nexus-kiosk`). Gitea: **http://10.10.10.68:3000** (`vrsi-git.vrsi.local`). Home dev VM: Mint-VM-Proxmox.
+Active test VM: **10.10.11.24** (user `vrsi`, install `/home/vrsi/nexus-kiosk`). Gitea: **http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk** (was `briank/nexus-kiosk`). Home dev VM: Mint-VM-Proxmox.
 
 ### VM deploy from Windows (LAN/VPN)
 
@@ -87,7 +87,7 @@ Active test VM: **10.10.11.24** (user `vrsi`, install `/home/vrsi/nexus-kiosk`).
 $env:VM_PASSWORD='…'   # never commit
 python scripts/vm-deploy.py    # upload sources, npm build, restart backend+kiosk, curl full import
 python scripts/vm-fix.py         # re-import only (parseXlsm + applyBoardImport)
-python scripts/push-gitea.ps1  # git push gitea master via 10.10.10.68
+python scripts/push-gitea.ps1  # git push gitea master to vrsi-pc-build/nexus-kiosk
 ```
 
 Spreadsheet path on kiosk (VMware drag-drop):  
@@ -104,9 +104,9 @@ Spreadsheet path on kiosk (VMware drag-drop):
 | Remote | URL | Use |
 |--------|-----|-----|
 | `origin` | `https://github.com/soakal/nexus-kiosk.git` | Primary; `git push origin master` |
-| `gitea` | `http://10.10.10.68:3000/briank/nexus-kiosk.git` | Internal; `git push gitea master` (Gitea login when prompted) |
+| `gitea` | `http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git` | Internal; `git push gitea master` (Gitea login when prompted) |
 
-If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` or use the IP remote above.
+Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank/nexus-kiosk`. If hostname fails on Windows, add `10.10.10.68 vrsi-git` to hosts.
 
 ---
 
@@ -207,7 +207,7 @@ If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` o
 **Ops**
 - `vm-deploy.py`: uploads board/calendar files, auto-import after deploy
 - `vm-fix.py`: full import via `applyBoardImport`
-- `scripts/push-gitea.ps1` — push to Gitea over LAN IP
+- `scripts/push-gitea.ps1` — push to Gitea (`vrsi-pc-build/nexus-kiosk`)
 
 ---
 
@@ -282,7 +282,7 @@ If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` o
 2. **Always `DISABLE_AZURE=true` in dev/test.** No SharePoint/O365 access in the testing environment.
 3. **Server won't start in production without `CORS_ORIGIN` and `ENCRYPTION_SECRET`** (and `AZURE_*` unless `DISABLE_AZURE=true`). This is intentional fail-fast behavior, not a bug.
 4. **`xlsx@0.18.5` is a known-vuln dependency parsing untrusted uploads** — top of the security TODO; don't add features on top of it without flagging.
-5. **Git remotes:** `origin` = GitHub only. `gitea` = `http://10.10.10.68:3000/briank/nexus-kiosk.git`. Push both: `git push origin master` then `git push gitea master` (on LAN; Gitea credentials required).
+5. **Git remotes:** `origin` = GitHub only. `gitea` = `http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git` (was `briank/nexus-kiosk`). Push both: `git push origin master` then `git push gitea master` (on LAN; Gitea credentials required).
 6. **Import vs deploy:** Code deploy does not update notes/checkmarks — run **Projects → Import** or `vm-deploy`/`vm-fix` full import after deploy.
 7. **Model usage convention on this project:** Opus for planning, Sonnet for coding.
 8. **Logs:** written under `server/logs/` (and `/logs/`); both are gitignored now. Don't re-add log files to git.

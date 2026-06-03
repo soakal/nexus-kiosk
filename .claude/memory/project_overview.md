@@ -7,7 +7,7 @@ metadata:
 
 # Nexus Kiosk Project Overview
 
-Wall dashboard (Dakboard replacement). GitHub: https://github.com/soakal/nexus-kiosk · Gitea: http://10.10.10.68:3000/briank/nexus-kiosk.git
+Wall dashboard (Dakboard replacement). GitHub: https://github.com/soakal/nexus-kiosk · Gitea: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git
 
 ## What it does
 

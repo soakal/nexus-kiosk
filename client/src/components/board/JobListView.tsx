@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
+import { BoardShipAgenda } from './BoardShipAgenda'
 import { filterJobsForTab, sortBoardJobsByShipDate } from './boardColors'
 import { BoardJob } from '../../types/board'
 import { canonicalPersonName, samePerson } from '../../utils/personIdentity'
@@ -424,8 +425,8 @@ export function JobListView({ tab }: Props) {
 
   return (
     <div>
-      {/* Sticky header */}
-      <div className="sticky top-0 z-20 bg-[#0f1117] pt-6 pb-3 mb-3">
+      {/* Sticky header — compact on mobile so job cards scroll clear */}
+      <div className="sticky top-0 z-20 bg-[#0f1117] pt-3 pb-2 mb-2 md:pt-6 md:pb-3 md:mb-3">
         {/* Row 1: search */}
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -582,6 +583,19 @@ export function JobListView({ tab }: Props) {
               onSelectMaterialsManager={(name) => toggleMaterialsManager(name, job.jobNumber)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Mobile: 30-day ship agenda below jobs — tap to scroll to card */}
+      {tab !== 'archive' && sorted.length > 0 && (
+        <div className="md:hidden mt-4 pt-4 border-t border-slate-800">
+          <BoardShipAgenda
+            jobs={sorted}
+            config={config}
+            activeUser={activeUser}
+            daysAhead={30}
+            onSelectJob={setScrollToJobNumber}
+          />
         </div>
       )}
     </div>

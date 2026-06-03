@@ -21,6 +21,7 @@ FILES = [
     "client/src/components/board/BoardLayout.tsx",
     "client/src/components/board/BoardHeader.tsx",
     "client/src/components/board/JobListView.tsx",
+    "client/src/components/board/BoardShipAgenda.tsx",
     "client/src/hooks/useBoard.ts",
     "client/src/components/CalendarView.tsx",
     "client/src/App.tsx",

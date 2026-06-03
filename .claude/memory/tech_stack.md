@@ -16,6 +16,7 @@ metadata:
 - **Graph:** @microsoft/microsoft-graph-client v3 (authenticated with Bearer token)
 - **Config storage:** Encrypted JSON file (server/data/tokens.json, server/data/config.json)
 - **Task scheduling:** node-cron for auto-refresh every 55 min
+- **Import:** `xlsx` SheetJS CDN 0.20.3 (parses uploaded `.xlsm` on server)
 
 ## Frontend
 - **Framework:** React 18
@@ -29,9 +30,8 @@ metadata:
 ## Deployment
 - **Target:** Linux (Ubuntu 22.04+ or Raspberry Pi OS Bookworm)
 - **Kiosk:** Chromium --kiosk flag
-- **Service manager:** systemd (two units: nexus-server + nexus-kiosk)
-- **Process manager:** Node native or systemd
-- **Production serving:** Express serves client/dist as static + API routes on same port (3001)
+- **Service manager:** systemd (`dashboard-backend.service`, `dashboard-kiosk.service`, optional `nexus-kiosk-updater.timer`, `nexus-kiosk-backup.timer`)
+- **Production serving:** Express serves client/dist as static + API routes on same port (3001); WorkingDirectory = install root; `.env` at install root
 
 ## Key decisions
 - Device Code Flow: no client secret, works on kiosk without browser redirect

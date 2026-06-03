@@ -24,10 +24,12 @@ Frontend: React 18 + Vite + Tailwind 3 + react-big-calendar + TanStack Query v5 
 4. Copy tenant ID + client ID to .env
 
 ## First run
-1. cp .env.example .env && fill in Azure credentials
+1. cp .env.example server/.env && fill in Azure credentials (local dev loads from `server/` when using `npm run dev`)
 2. Start server + client dev servers
 3. Open http://localhost:5173 — shows device code screen
 4. Sign in at microsoft.com/devicelogin on your phone
+
+On a **Linux kiosk**, `.env` lives at the install root (e.g. `/home/vrsi/nexus-kiosk/.env`) and is loaded by systemd — not under `server/`.
 
 ## Linux deploy (one command)
   curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/master/deploy/install-linux.sh | sudo bash
@@ -38,6 +40,16 @@ Frontend: React 18 + Vite + Tailwind 3 + react-big-calendar + TanStack Query v5 
 ## Project Board ("Projects")
 Self-contained job-tracking feature at the `/board` route. No Graph API / no auth required (user is chosen via a picker).
 Tabs/routes: `/board` (Project), `/board/spare-parts` (Spare Parts), `/board/archive`, `/board/users` (picker + colors), `/board/import` (XLSM import).
+
+**List filters (Project + Spare Parts):** Below the search bar — side-by-side multi-select dropdowns for **Project Manager** and **Materials Manager**. Selected names show as bubbles inside each field (× to remove). **Clear** on the label and inside the dropdown. Multiple PMs/MMs supported; both dropdowns apply together (match any selected PM **and** any selected MM). Selections persist per tab in `sessionStorage`. Click PM/MM on a job card to toggle that person in the filter.
+
+**Job cards:** Job # + customer bubble (hash color), original ship date top-right, MM/PM line, status checkboxes, binder (project only — hidden on spare jobs), ship date editor with optional override reason, notes.
+
+**Spare parts:** Job appears on Spare Parts tab if PM matches configured spare carrier **or** job number starts with `sp-` or `sp ` (case-insensitive). Binder checkbox hidden; API forces `binderPrinted: false` for spare jobs.
+
+**Ship date override:** `shipDateOverride` + optional `shipDateOverrideNote` on PATCH; `originalShipDate` always shown from import.
+
+**NEW badge:** Only for job numbers first seen in the **current** import (not carried forward from prior imports).
 
 **Two JSON files (both gitignored):**
 - `jobs.json` — spreadsheet rows (job #, customer, PM, ship dates). Refreshed on every import.
@@ -106,10 +118,18 @@ Install dir: `/home/vrsi/nexus-kiosk`. From dev machine (on LAN/VPN):
 $env:VM_PASSWORD='…'
 python scripts/vm-deploy.py          # SFTP sources, build, restart, auto-import xlsm
 python scripts/vm-fix.py             # full import only (jobs + board-state)
+python scripts/vm-install.py         # fresh install-linux.sh (VM_SKIP_IMPORT=1 default — no auto-import)
+python scripts/vm-reinstall-clean.py # uninstall + fresh install
+python scripts/vm-uninstall.py       # remote uninstall-linux.sh (wipes app + data + backups)
+python scripts/vm-wipe-board.py      # delete board JSON only (jobs/state/config)
 python scripts/push-gitea.ps1        # push master to Gitea (LAN IP)
 ```
 
-Legacy one-off scripts and static HTML mockups (`mockup*.html`, `vm-fix2.py`, diagnostic `vm-*-diag*`) were removed — use the three scripts above.
+Optional env: `VM_HOST`, `VM_USER`, `VM_INSTALL`, `VM_XLSM`, `VM_AUTO_IMPORT=1` (import on fresh install).
+
+Legacy one-off scripts and static HTML mockups (`mockup*.html`, `vm-fix2.py`, diagnostic `vm-*-diag*`) were removed — use the scripts above.
+
+Uninstall on the VM directly: `NON_INTERACTIVE=1 sudo bash $INSTALL_DIR/deploy/uninstall-linux.sh`
 
 Active spreadsheet on VM: `/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm`
 
@@ -125,6 +145,16 @@ Do not add a second push URL on `origin` for Gitea — use `git push gitea maste
 - Ship-date events from board jobs; subject `#job · customer · PM`, `boardTab` routes calendar clicks to Project / Spare Parts / Archive.
 - Week view: always native `week` (7 columns). Weekends off = Mon-start + CSS clip (not `work_week` — crashes on weekend events).
 - Month weekends off: 7-day grid + clip right 2/7 columns.
+
+## Recently fixed (wallboard dev notes 2026-06)
+- Job card 5-line layout; customer hash-color bubble; original ship date top-right
+- PM/MM multi-select dropdown filters (Project + Spare Parts); Clear button; session persistence per tab
+- Ship date override reason field (`shipDateOverrideNote`); PATCH API + ShipDateEditor
+- NEW badge only for jobs new in current import (`saveJobsFile` fix)
+- Spare jobs: binder hidden in UI; `binderPrinted` forced false in API; import skips spare binder
+- UsersView: manual Extra Users collapsed under Advanced
+- `deploy/uninstall-linux.sh` + VM helper scripts (`vm-install`, `vm-uninstall`, `vm-reinstall-clean`, `vm-wipe-board`)
+- `xlsx` upgraded to SheetJS CDN 0.20.3 (was registry 0.18.5)
 
 ## Recently fixed (2026-06 session)
 - Full import pipeline: `applyBoardImport` writes status + Ops Schedule notes to `board-state.json` (not just `jobs.json`)

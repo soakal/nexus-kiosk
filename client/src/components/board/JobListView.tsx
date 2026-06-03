@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
@@ -19,7 +19,7 @@ function loadFilterList(key: string): string[] {
   try {
     const parsed = JSON.parse(raw) as unknown
     if (Array.isArray(parsed)) {
-      return parsed.filter((x): x is string => typeof x === 'string' && x.trim()).map((x) => x.trim())
+      return parsed.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((x) => x.trim())
     }
   } catch {
     return raw.trim() ? [raw.trim()] : []
@@ -36,11 +36,13 @@ function PersonMultiSelect({
   names,
   selected,
   onChange,
+  bubbleClass,
 }: {
   label: string
   names: string[]
   selected: string[]
   onChange: (next: string[]) => void
+  bubbleClass: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -54,8 +56,6 @@ function PersonMultiSelect({
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  if (names.length === 0) return null
-
   const toggle = (name: string) => {
     if (isSelected(selected, name)) {
       onChange(selected.filter((s) => norm(s) !== norm(name)))
@@ -64,63 +64,103 @@ function PersonMultiSelect({
     }
   }
 
-  const buttonLabel =
-    selected.length === 0
-      ? 'All'
-      : selected.length === 1
-        ? selected[0]
-        : `${selected.length} selected`
+  const remove = (name: string, e: ReactMouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onChange(selected.filter((s) => norm(s) !== norm(name)))
+  }
 
   return (
-    <div ref={ref} className="relative min-w-0 flex-1">
-      <label className="text-slate-500 text-xs block mb-1">{label}</label>
+    <div ref={ref} className="relative min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="text-slate-500 text-xs">{label}</div>
+        {selected.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2 shrink-0"
+          >
+            Clear
+          </button>
+        )}
+      </div>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+        className={`w-full min-h-[2.5rem] flex items-center gap-1 flex-wrap rounded-lg border px-2 py-1.5 text-left transition-colors ${
           selected.length > 0
-            ? 'bg-blue-600/20 border-blue-500/50 text-slate-100'
-            : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500'
+            ? 'bg-slate-800/80 border-blue-500/40'
+            : 'bg-slate-800 border-slate-700 hover:border-slate-500'
         }`}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span className="truncate text-left">{buttonLabel}</span>
-        <span className="text-slate-500 shrink-0">{open ? '▴' : '▾'}</span>
+        {selected.length === 0 ? (
+          <span className="text-slate-400 text-sm px-1">All</span>
+        ) : (
+          selected.map((name) => (
+            <span
+              key={name}
+              className={`inline-flex items-center gap-1 max-w-[11rem] rounded-full border px-2 py-0.5 text-xs text-slate-100 ${bubbleClass}`}
+              title={name}
+            >
+              <span className="truncate">{name}</span>
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => remove(name, e)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    remove(name, e as unknown as ReactMouseEvent)
+                  }
+                }}
+                className="text-slate-300 hover:text-white shrink-0 leading-none"
+                aria-label={`Remove ${name}`}
+              >
+                ×
+              </span>
+            </span>
+          ))
+        )}
+        <span className="ml-auto pl-1 text-slate-500 shrink-0 text-sm">{open ? '▴' : '▾'}</span>
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 sm:right-auto sm:min-w-[16rem] top-full mt-1 z-40 max-h-64 overflow-y-auto rounded-xl border border-slate-600 bg-slate-800 shadow-xl py-1">
-          <button
-            type="button"
-            onClick={() => {
-              onChange([])
-              setOpen(false)
-            }}
-            className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:bg-slate-700/80 hover:text-slate-200"
-          >
-            Clear all
-          </button>
-          <div className="border-t border-slate-700/80 my-1" />
-          {names.map((name) => {
-            const checked = isSelected(selected, name)
-            return (
-              <label
-                key={name}
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-700/60 text-sm text-slate-200"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggle(name)}
-                  className="rounded border-slate-500 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800"
-                />
-                <span className="truncate" title={name}>
-                  {name}
-                </span>
-              </label>
-            )
-          })}
+        <div className="absolute left-0 right-0 top-full mt-1 z-40 max-h-56 overflow-y-auto rounded-xl border border-slate-600 bg-slate-800 shadow-xl py-1">
+          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/80">
+            <span className="text-xs text-slate-500">{selected.length} selected</span>
+            <button
+              type="button"
+              disabled={selected.length === 0}
+              onClick={() => onChange([])}
+              className="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Clear
+            </button>
+          </div>
+          {names.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-slate-500">No people on this tab yet.</p>
+          ) : (
+            names.map((name) => {
+              const checked = isSelected(selected, name)
+              return (
+                <label
+                  key={name}
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-700/60 text-sm text-slate-200"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(name)}
+                    className="rounded border-slate-500 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800"
+                  />
+                  <span className="truncate" title={name}>
+                    {name}
+                  </span>
+                </label>
+              )
+            })
+          )}
         </div>
       )}
     </div>
@@ -296,7 +336,7 @@ export function JobListView({ tab }: Props) {
     new Set(tabFiltered.map((j) => j.materialsManager.trim()).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b))
 
-  const showPersonFilters = tab !== 'archive'
+  const showPersonFilters = tab === 'project' || tab === 'spare-parts'
   const personFilterActive = filterPms.length > 0 || filterMms.length > 0
 
   const toggleProjectManager = (name: string, anchorJobNumber?: string) => {
@@ -362,7 +402,8 @@ export function JobListView({ tab }: Props) {
     ? filtered.filter((j) =>
         j.jobNumber.toLowerCase().includes(q) ||
         j.customer.toLowerCase().includes(q) ||
-        j.pm.toLowerCase().includes(q)
+        j.pm.toLowerCase().includes(q) ||
+        j.materialsManager.toLowerCase().includes(q)
       )
     : filtered
 
@@ -384,67 +425,7 @@ export function JobListView({ tab }: Props) {
     <div>
       {/* Sticky header */}
       <div className="sticky top-0 z-20 bg-[#0f1117] pt-6 pb-3 mb-3">
-        {/* Row 1: Project Manager + Materials Manager filters (top, side by side) */}
-        {showPersonFilters && (
-          <div className="mb-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <PersonMultiSelect
-                label="Project Manager"
-                names={uniquePms}
-                selected={filterPms}
-                onChange={setFilterPms}
-              />
-              <PersonMultiSelect
-                label="Materials Manager"
-                names={uniqueMms}
-                selected={filterMms}
-                onChange={setFilterMms}
-              />
-            </div>
-            {(filterPms.length > 0 || filterMms.length > 0) && (
-              <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                {filterPms.map((name) => (
-                  <span
-                    key={`pm-${name}`}
-                    className="inline-flex items-center gap-1 max-w-full rounded-full bg-blue-600/25 border border-blue-500/40 px-2.5 py-0.5 text-xs text-slate-200"
-                    title={name}
-                  >
-                    <span className="text-blue-300/90 shrink-0">PM</span>
-                    <span className="truncate">{name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setFilterPms((prev) => prev.filter((s) => norm(s) !== norm(name)))}
-                      className="text-slate-400 hover:text-white shrink-0 ml-0.5"
-                      aria-label={`Remove ${name}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {filterMms.map((name) => (
-                  <span
-                    key={`mm-${name}`}
-                    className="inline-flex items-center gap-1 max-w-full rounded-full bg-violet-600/20 border border-violet-500/40 px-2.5 py-0.5 text-xs text-slate-200"
-                    title={name}
-                  >
-                    <span className="text-violet-300/90 shrink-0">MM</span>
-                    <span className="truncate">{name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setFilterMms((prev) => prev.filter((s) => norm(s) !== norm(name)))}
-                      className="text-slate-400 hover:text-white shrink-0 ml-0.5"
-                      aria-label={`Remove ${name}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Row 2: search */}
+        {/* Row 1: search */}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -453,7 +434,7 @@ export function JobListView({ tab }: Props) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
-              placeholder="Search job number, customer, or PM…"
+              placeholder="Search job number, customer, PM, or MM…"
               className="w-full bg-slate-800 border border-slate-700 text-slate-200 placeholder-slate-500 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
             />
             {inputValue && (
@@ -527,6 +508,26 @@ export function JobListView({ tab }: Props) {
             </div>
           )}
         </div>
+
+        {/* Row 2: Project Manager + Materials Manager dropdowns (multi-select, bubbles inside) */}
+        {showPersonFilters && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+            <PersonMultiSelect
+              label="Project Manager"
+              names={uniquePms}
+              selected={filterPms}
+              onChange={setFilterPms}
+              bubbleClass="bg-blue-600/50 border-blue-400/50"
+            />
+            <PersonMultiSelect
+              label="Materials Manager"
+              names={uniqueMms}
+              selected={filterMms}
+              onChange={setFilterMms}
+              bubbleClass="bg-violet-600/40 border-violet-400/50"
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-between mt-2">
           <p className="text-slate-500 text-sm">

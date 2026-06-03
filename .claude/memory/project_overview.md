@@ -11,13 +11,20 @@ Wall dashboard (Dakboard replacement). GitHub: https://github.com/soakal/nexus-k
 
 ## What it does
 
-1. **Calendar / SharePoint** — Microsoft Graph (Device Code Flow), react-big-calendar, agenda, weather.
-2. **Project Board** (`/board`) — jobs from Active Projects `.xlsm`; notes, status checkmarks, ship dates; no Azure required for board.
+1. **Calendar / SharePoint** — Microsoft Graph (Device Code Flow), react-big-calendar, agenda, weather. Ship-date overlay from board; clicks route to correct Projects tab.
+2. **Project Board** (`/board`) — jobs from Active Projects `.xlsm`; notes, status checkmarks, ship dates with override reason; no Azure required for board.
+
+## Board UI (2026-06)
+
+- **Filters:** PM + MM multi-select dropdowns below search (Project + Spare Parts); bubbles inside field; Clear button; session persistence per tab.
+- **Cards:** Job # + customer bubble, original ship date, MM/PM line, status, binder (project only), ship override + reason, notes.
+- **Spare:** PM matches spare carrier OR job # starts with `sp-` / `sp `; binder hidden/forced false.
+- **NEW badge:** Only job numbers new in current import.
 
 ## Data (all under `server/data/`, gitignored)
 
 - `jobs.json` — spreadsheet import (job rows, ship dates).
-- `board-state.json` — per-job status, ship-date overrides, `notes[]` (user + Ops Schedule).
+- `board-state.json` — per-job status, ship-date overrides + reason, `notes[]` (user + Ops Schedule).
 - `board-config.json`, `tokens.json`, `config.json`.
 
 Full import must run via UI Import or `applyBoardImport` — not just `saveJobsFile`.
@@ -25,7 +32,7 @@ Full import must run via UI Import or `applyBoardImport` — not just `saveJobsF
 ## Test VM
 
 - **10.10.11.24** — `/home/vrsi/nexus-kiosk`, user `vrsi`.
-- Helpers: `scripts/vm-deploy.py`, `scripts/vm-fix.py`, `scripts/push-gitea.ps1`.
+- Helpers: `vm-deploy.py`, `vm-fix.py`, `vm-install.py`, `vm-uninstall.py`, `vm-reinstall-clean.py`, `vm-wipe-board.py`, `push-gitea.ps1`.
 - Testing: `DISABLE_AZURE=true` common; port 3001 conflicts with `/opt/tender/backend` possible.
 
 ## Testing-phase network (see HANDOFF)
@@ -37,6 +44,7 @@ Full import must run via UI Import or `applyBoardImport` — not just `saveJobsF
 ## Current status (2026-06)
 
 - Board import: status mapping, NOTE → Ops Schedule notes, author-only note edit/delete.
-- Calendar: week view without `work_week`; spare-tab routing; PM on ship events.
-- Deploy: install-linux.sh, auto-update, backup/restore timers.
-- Pending: scheduled auto-import from file share, xlsx upgrade, full Azure on kiosk.
+- Calendar: week view without `work_week`; spare-tab routing; `#job · customer · PM` on ship events.
+- Deploy: install-linux.sh, uninstall-linux.sh, auto-update, backup/restore timers.
+- xlsx: SheetJS CDN 0.20.3 (server).
+- Pending: scheduled auto-import from file share, full Azure on kiosk.

@@ -16,8 +16,10 @@ Runs in Chromium kiosk mode on Linux; developed on Windows or macOS with Vite + 
 | **Agenda** | Upcoming events with “Now” highlighting |
 | **SharePoint** | Recent files panel (Graph API) |
 | **Project Board** | Jobs from **Active Projects** `.xlsm`; tabs for Project, Spare Parts, Archive |
+| **Board filters** | Multi-select Project Manager / Materials Manager dropdowns (Project + Spare Parts tabs) |
 | **Notes** | Per-job notes; only the author can edit/delete; spreadsheet NOTE → read-only “Ops Schedule” note |
 | **Status** | In Progress / Ready to Ship / Shipped checkmarks (imported from spreadsheet Status column) |
+| **Ship dates** | Override imported ship date with optional reason; original date always visible |
 
 The board (`/board`) does **not** require Azure. Calendar and SharePoint do (unless `DISABLE_AZURE=true` test mode).
 
@@ -96,11 +98,30 @@ Code deploy alone does **not** refresh notes/status — always import (or use `a
 
 | Path | Purpose |
 |------|---------|
-| `/board` | Active project jobs |
-| `/board/spare-parts` | Spare-parts PM + jobs whose number starts with `sp-` or `sp ` |
+| `/board` | Active project jobs (excludes spare + shipped) |
+| `/board/spare-parts` | Spare carrier PM jobs + job numbers starting with `sp-` or `sp ` |
 | `/board/archive` | Shipped jobs |
-| `/board/users` | User picker and status colors |
+| `/board/users` | User picker, status colors, spare carrier PM |
 | `/board/import` | Upload `.xlsm` |
+
+### List UI (Project + Spare Parts)
+
+Below the search bar:
+
+- **Project Manager** and **Materials Manager** — side-by-side multi-select dropdowns
+- Selected people appear as **bubbles inside the field** (× to remove one; **Clear** resets all)
+- Filters persist per tab in the browser session
+- Click PM or MM on a job card to add/remove that person from the filter
+- Search matches job number, customer, PM, or MM
+
+**Project tab only:** **My Jobs** / **All Jobs** toggle (hidden on Spare Parts and Archive).
+
+### Job cards
+
+- Job number + customer bubble (consistent hash color)
+- Original ship date (top-right); editable override with optional reason
+- Status checkboxes; binder printed (project jobs only — not shown on spare)
+- Per-job notes with author-only edit/delete
 
 ### Data files (gitignored — never commit)
 
@@ -129,6 +150,7 @@ Weekly kiosk auto-update runs `git reset --hard`. If any of these files were eve
 - `POST /api/board/import` — file upload or JSON body  
 - `GET /api/board/jobs` — merged jobs + state  
 - `PATCH /api/board/jobs/:jobNumber/status` — 404 if job unknown  
+- `PATCH /api/board/jobs/:jobNumber/ship-date` — `shipDateOverride`, optional `shipDateOverrideNote`  
 - Notes: author-only `PATCH` / `DELETE`; Ops Schedule notes protected  
 
 ---
@@ -191,19 +213,26 @@ Archives: `/var/backups/nexus-kiosk/board-YYYY-MM-DD-HHMM.tar.gz` (28 retained).
 
 ### Helper scripts (from your PC)
 
-Set `VM_PASSWORD` (never commit credentials):
+Set `VM_PASSWORD` (never commit credentials). Optional: `VM_HOST`, `VM_USER`, `VM_INSTALL`, `VM_XLSM`, `VM_AUTO_IMPORT=1`.
+
+| Script | Purpose |
+|--------|---------|
+| `python scripts/vm-deploy.py` | Upload changed sources, build, restart, auto-import if `.xlsm` on VM |
+| `python scripts/vm-fix.py` | Re-run full import only |
+| `python scripts/vm-install.py` | Fresh `install-linux.sh` (default: no import — set `VM_AUTO_IMPORT=1` to import) |
+| `python scripts/vm-reinstall-clean.py` | Uninstall + fresh install |
+| `python scripts/vm-uninstall.py` | Full remote uninstall (app, data, backups, services) |
+| `python scripts/vm-wipe-board.py` | Delete board JSON only (keep app install) |
+| `.\scripts\push-gitea.ps1` | Push `master` to LAN Gitea |
 
 ```powershell
 $env:VM_PASSWORD = '…'
-python scripts/vm-deploy.py   # upload sources, build, restart, auto-import if .xlsm present
-python scripts/vm-fix.py      # re-run full import only
-```
-
-```powershell
-.\scripts\push-gitea.ps1      # push to LAN Gitea
+python scripts/vm-deploy.py
 ```
 
 **Port 3001:** Another service (`/opt/tender/backend`) has been known to bind the port; `vm-deploy` frees it before restart.
+
+**Uninstall on the VM:** `NON_INTERACTIVE=1 sudo bash $INSTALL_DIR/deploy/uninstall-linux.sh`
 
 ---
 
@@ -249,9 +278,9 @@ git push gitea master
 
 ## Security notes
 
-- Board import accepts **untrusted** `.xlsm` uploads; `xlsx@0.18.5` has known CVEs — upgrade tracked in HANDOFF.
+- Board import parses **untrusted** `.xlsm` uploads server-side (`xlsx` SheetJS CDN **0.20.3**).
 - Board and config APIs are **unauthenticated** on the LAN today; `ADMIN_TOKEN` gate is planned.
-- Do not commit `server/.env`, `server/data/*.json`, or logs.
+- Do not commit `server/.env`, install-root `.env`, `server/data/*.json`, or logs.
 
 ---
 
@@ -261,7 +290,7 @@ git push gitea master
 client/          React UI
 server/          Express API, Graph, board service
 server/data/     Runtime JSON (gitignored)
-deploy/          install-linux.sh, systemd units, backup/restore
-scripts/         vm-deploy.py, vm-fix.py, push-gitea.ps1
+deploy/          install-linux.sh, uninstall-linux.sh, systemd units, backup/restore
+scripts/         vm-deploy.py, vm-fix.py, vm-install.py, vm-uninstall.py, push-gitea.ps1, …
 docs/            Azure and VM guides
 ```

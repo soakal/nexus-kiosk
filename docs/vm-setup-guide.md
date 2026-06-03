@@ -114,15 +114,25 @@ The installer will:
 
 ---
 
-## 7. Configure Azure Credentials
+## 7. Configure Environment
 
-The dashboard reads Azure / Microsoft 365 credentials from a `.env` file. SSH into the VM and edit it:
+The dashboard reads credentials from `.env` at the **install root** (same folder as `client/` and `server/`), not inside `server/`. SSH into the VM and edit it:
 
 ```bash
 nano ~/nexus-kiosk/.env
 ```
 
-Fill in the values specific to your Azure app registration (client ID, tenant ID, client secret, etc.). Save with **Ctrl+O** then exit with **Ctrl+X**.
+For a **test kiosk** without Microsoft sign-in, set:
+
+```env
+DISABLE_AZURE=true
+ENCRYPTION_SECRET=<long random string>
+CORS_ORIGIN=http://<vm-ip>:3001
+```
+
+With Azure enabled, fill in `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `ENCRYPTION_SECRET`. Device Code Flow does **not** use a client secret. See [docs/azure-for-it-admin.md](azure-for-it-admin.md).
+
+Save with **Ctrl+O** then exit with **Ctrl+X**.
 
 ---
 
@@ -189,3 +199,60 @@ NON_INTERACTIVE=1 sudo bash ~/nexus-kiosk/deploy/uninstall-linux.sh
 ```
 
 This stops all systemd services (backend, kiosk, backup, auto-update), removes the install directory (including `.env`, `server/data/*.json` — jobs, notes, status), log directory, and all `/var/backups/nexus-kiosk*` archives. Use interactive mode (without `NON_INTERACTIVE=1`) for confirmation prompts.
+
+From **Windows** (on LAN), you can run the same uninstall remotely:
+
+```powershell
+$env:VM_PASSWORD = '…'
+python scripts/vm-uninstall.py
+```
+
+---
+
+## 11. Board Backups (production kiosk)
+
+Board data is backed up automatically every 6 hours when the backup timer is enabled (full `install-linux.sh` install).
+
+| Item | Location / command |
+|------|---------------------|
+| Archives | `/var/backups/nexus-kiosk/board-YYYY-MM-DD-HHMM.tar.gz` |
+| Retention | 28 copies (7 days × 4/day) |
+| Manual backup | `sudo bash $INSTALL_DIR/deploy/backup.sh` |
+| List backups | `sudo bash $INSTALL_DIR/deploy/restore.sh list` |
+| Restore latest | `sudo bash $INSTALL_DIR/deploy/restore.sh latest` |
+
+---
+
+## 12. Project Board on the kiosk
+
+Open **http://&lt;vm-ip&gt;:3001/board** (or use the **Projects** link from the calendar).
+
+| Tab | Route | Purpose |
+|-----|-------|---------|
+| Project | `/board` | Active jobs (excludes spare + shipped) |
+| Spare Parts | `/board/spare-parts` | Spare carrier PM + `sp-` / `sp ` job numbers |
+| Archive | `/board/archive` | Shipped jobs |
+| Users | `/board/users` | Pick your name; set status colors |
+| Import | `/board/import` | Upload Operations Schedule `.xlsm` |
+
+**Project** and **Spare Parts** tabs have **Project Manager** and **Materials Manager** multi-select filters below the search bar. Pick a user on **Users** before using **My Jobs** on the Project tab.
+
+Import updates both `jobs.json` (spreadsheet rows) and `board-state.json` (status, notes, overrides). Code deploy alone does **not** refresh checkmarks or notes — always import after spreadsheet changes.
+
+---
+
+## 13. Deploy updates from Windows (work VM)
+
+The VRSI test kiosk is at **10.10.11.24** (`vrsi@10.10.11.24`, install `/home/vrsi/nexus-kiosk`).
+
+From your PC on the plant LAN:
+
+```powershell
+$env:VM_PASSWORD = '…'
+python scripts/vm-deploy.py    # upload changed files, build, restart, auto-import if .xlsm present
+python scripts/vm-fix.py       # re-run full import only
+```
+
+See [README.md](../README.md) for the full script list (`vm-install.py`, `vm-reinstall-clean.py`, `vm-wipe-board.py`, etc.).
+
+Hard-refresh the kiosk browser after deploy: **Ctrl+Shift+R**.

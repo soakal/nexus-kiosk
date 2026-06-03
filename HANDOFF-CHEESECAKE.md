@@ -50,8 +50,10 @@ Open http://localhost:5173.
 
 First-time setup:
 ```bash
-cp .env.example .env   # in server/, then fill in values
+cp .env.example server/.env   # local dev — server loads from server/ when using npm run dev
 ```
+
+On a **Linux kiosk**, `.env` is at the install root (e.g. `/home/vrsi/nexus-kiosk/.env`), loaded by systemd — not under `server/`.
 
 ---
 
@@ -85,10 +87,16 @@ Active test VM: **10.10.11.24** (user `vrsi`, install `/home/vrsi/nexus-kiosk`).
 
 ```powershell
 $env:VM_PASSWORD='…'   # never commit
-python scripts/vm-deploy.py    # upload sources, npm build, restart backend+kiosk, curl full import
-python scripts/vm-fix.py         # re-import only (parseXlsm + applyBoardImport)
-python scripts/push-gitea.ps1  # git push gitea master to vrsi-pc-build/nexus-kiosk
+python scripts/vm-deploy.py       # upload sources, npm build, restart backend+kiosk, curl full import
+python scripts/vm-fix.py           # re-import only (parseXlsm + applyBoardImport)
+python scripts/vm-install.py       # fresh install-linux.sh (VM_SKIP_IMPORT default — empty board)
+python scripts/vm-reinstall-clean.py  # uninstall + fresh install
+python scripts/vm-uninstall.py     # remote uninstall-linux.sh
+python scripts/vm-wipe-board.py    # delete board JSON only
+python scripts/push-gitea.ps1      # git push gitea master to vrsi-pc-build/nexus-kiosk
 ```
+
+Optional: `VM_HOST`, `VM_USER`, `VM_INSTALL`, `VM_XLSM`, `VM_AUTO_IMPORT=1` (import after fresh install).
 
 Spreadsheet path on kiosk (VMware drag-drop):  
 `/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm`
@@ -124,12 +132,30 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 ## How the Board / Jobs feature works
 
 - Routes: `/board` (Projects), `/board/spare-parts`, `/board/archive`, `/board/users` (picker + colors), `/board/import` (XLSM import).
-- **Import:** upload the `.xlsm`; server parses **"Active Projects"** (column **NOTE** → Ops Schedule notes; **Status** → checkmarks). PM values are lowercased on import. Spare carrier = `matto@vrs-inc.com`. Spare job = PM matches carrier **or** job number starts with `sp`.
+- **Import:** upload the `.xlsm`; server parses **"Active Projects"** (column **NOTE** → Ops Schedule notes; **Status** → checkmarks). PM values are lowercased on import. Spare carrier configured on Users tab / Spare Parts gear. Spare job = PM matches carrier **or** job number starts with `sp-` or `sp ` (not bare `sp`).
 - **`jobs.json`** — spreadsheet job rows only (no notes).
-- **`board-state.json`** — `{ jobs: { "9201-016": { status, shipDateOverride, notes[], updatedAt } } }`. User notes + at most one `system:ops-schedule` note per job.
+- **`board-state.json`** — `{ jobs: { "9201-016": { status, shipDateOverride, shipDateOverrideNote, notes[], updatedAt } } }`. User notes + at most one `system:ops-schedule` note per job.
 - **`board-config.json`** — colors, spare carrier, super user, extra users.
-- Calendar ship-date events: `#job · PM`, click opens correct tab (`boardTab`: project / spare-parts / archive).
-- `isNew` badge for jobs new since last import.
+- Calendar ship-date events: `#job · customer · PM`, click opens correct tab (`boardTab`: project / spare-parts / archive).
+- `isNew` badge for jobs whose job number first appears in the **current** import only.
+
+### List filters (Project + Spare Parts tabs)
+
+Below the search bar — side-by-side **Project Manager** and **Materials Manager** multi-select dropdowns:
+
+- Selected names show as bubbles inside each field (× removes one person)
+- **Clear** on the label row and inside the dropdown panel
+- Multiple PMs and MMs; when both dropdowns have selections, a job must match **any** selected PM **and** **any** selected MM
+- Selections stored in `sessionStorage` per tab + user
+- Click PM/MM on a job card to toggle that person in the filter
+- **My Jobs / All Jobs** toggle on Project tab only (Spare Parts always shows all spare jobs)
+
+### Job cards
+
+- Job # + customer bubble (hash color from customer name)
+- Original ship date top-right; override via ShipDateEditor with optional reason (`shipDateOverrideNote`)
+- Status checkboxes; binder printed (project jobs only — hidden on spare)
+- Notes section with enlarged delete target; author-only edit/delete
 
 ### Data directory — read this twice
 **Everything persisted lives in `server/data/`.** All three services (tokenStore, configService, boardService) now resolve there consistently (a prior bug leaked token/config to `<root>/data`, un-gitignored). The five files — `tokens.json`, `config.json`, `jobs.json`, `board-state.json`, `board-config.json` — are **all gitignored and MUST stay that way.** The weekly `git reset --hard` will wipe any committed data file, destroying everyone's notes/status. This is the project's #1 landmine.
@@ -207,7 +233,31 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 **Ops**
 - `vm-deploy.py`: uploads board/calendar files, auto-import after deploy
 - `vm-fix.py`: full import via `applyBoardImport`
+- `vm-install.py`, `vm-uninstall.py`, `vm-reinstall-clean.py`, `vm-wipe-board.py` — install lifecycle from Windows
+- `deploy/uninstall-linux.sh` — full clean slate on the VM
 - `scripts/push-gitea.ps1` — push to Gitea (`vrsi-pc-build/nexus-kiosk`)
+
+---
+
+## Recently fixed (wallboard dev notes 2026-06)
+
+**Board UI**
+- Job card 5-line layout; customer hash-color bubble; original ship date top-right
+- PM/MM multi-select dropdown filters on **Project + Spare Parts** (below search); Clear button; bubbles inside field
+- Ship date override reason (`shipDateOverrideNote`); PATCH API + `ShipDateEditor`
+- Clickable PM/MM on cards toggles filter; session persistence per tab
+- UsersView: manual Extra Users under collapsed **Advanced**
+
+**Data / import**
+- NEW badge only for job numbers new in current import (`saveJobsFile` — no carry-over)
+- Spare jobs: binder hidden in UI; `getMergedJobs` forces `binderPrinted: false`; import skips spare binder
+
+**VM tooling**
+- `deploy/uninstall-linux.sh` + Python helpers (`vm-install`, `vm-uninstall`, `vm-reinstall-clean`, `vm-wipe-board`)
+- Fresh installs default `VM_SKIP_IMPORT` (empty board unless `VM_AUTO_IMPORT=1`)
+
+**Dependencies**
+- `xlsx` upgraded to SheetJS CDN 0.20.3 (was registry 0.18.5 with known CVEs)
 
 ---
 
@@ -217,7 +267,7 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 - [ ] **Verify 401 self-recovery on VM after auto-update**: The client debounce (4 polls before /setup redirect) and server readiness poll in auto-update.sh are in place. Confirm on 10.10.11.24 after a real `NEXUS_UPDATE=1` run that the kiosk self-recovers without manual reboot. Adjust poll count if token refresh takes >15s.
 - [ ] **Wire backup timer into NEXUS_UPDATE path**: `install-linux.sh` full-install enables `nexus-kiosk-backup.timer`. The `NEXUS_UPDATE=1` short-circuit does NOT re-install it. An existing VM running update-only won't get the 6-hourly timer until a full reinstall. Either add timer install to the update path or document that one full reinstall is required.
 - [ ] **Scheduled XLSM auto-import**: No server-side cron yet. `vm-deploy.py` imports on manual deploy only. Add `node-cron` + configured path calling `applyBoardImport` (not `saveJobsFile` alone). `isNew` badge infra already built.
-- [ ] **Upgrade `xlsx`** away from registry `0.18.5` — unpatched prototype-pollution (CVE-2023-30533) + ReDoS, and it parses **untrusted uploads** on the unauthenticated `/api/board/import`. Move to the SheetJS CDN build or an alternative.
+- [x] **Upgrade `xlsx`** — now SheetJS CDN 0.20.3 in `server/package.json` (was registry 0.18.5). — DONE
 - [x] **Validate the client-supplied jobs array** in `/import` — `validateJobsArray()` + 404 on unknown job for status/ship-date/notes. — DONE
 - [x] **Serialize board-state read-modify-write** (mutation queue or per-job optimistic concurrency) — concurrent edits currently clobber each other (lost notes/status). — DONE (import path now serialized)
 - [x] **`parseDateValue` timezone bug** — build dates from local Y/M/D components, not `toISOString().slice(0,10)`, to avoid off-by-one ship dates; also handle Excel error strings. — DONE (returns null for garbage, 4-digit year required)
@@ -226,6 +276,9 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 - [x] **Add `/api/*` 404 JSON handler** before the SPA `*` catch-all. — DONE (`server/src/index.ts`)
 - [ ] **URL-encode interpolated Graph IDs** (siteId, driveId, calendarId, search) in `graph/sharepoint.ts` and `graph/events.ts`.
 - [x] **Import orphan/isNew handling** — prune stale board-state entries on re-import; `NEW` badge only on job numbers new in the latest import (not carried forward). — DONE
+- [x] **PM/MM list filters** — multi-select dropdowns with bubbles (Project + Spare Parts tabs). — DONE
+- [x] **Ship date override reason** — `shipDateOverrideNote` on board-state + PATCH API. — DONE
+- [x] **Spare binder exclusion** — hidden in UI; forced false in API for spare jobs. — DONE
 - [ ] **Auto-update.sh** — guard against missing/non-git `INSTALL_DIR` before cd/git; finite git transfer timeouts (`GIT_HTTP_LOW_SPEED_LIMIT/TIME`); defer `rm -rf node_modules` until npm reachability confirmed.
 
 ### Medium
@@ -281,7 +334,7 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 1. **Never commit `server/data/*.json`.** The weekly `git reset --hard` (auto-update) will nuke any committed data file and erase everyone's board notes/status. They're gitignored — keep them that way.
 2. **Always `DISABLE_AZURE=true` in dev/test.** No SharePoint/O365 access in the testing environment.
 3. **Server won't start in production without `CORS_ORIGIN` and `ENCRYPTION_SECRET`** (and `AZURE_*` unless `DISABLE_AZURE=true`). This is intentional fail-fast behavior, not a bug.
-4. **`xlsx@0.18.5` is a known-vuln dependency parsing untrusted uploads** — top of the security TODO; don't add features on top of it without flagging.
+4. **`xlsx` on SheetJS CDN 0.20.3** parses untrusted board uploads — keep updated; board routes remain unauthenticated on LAN.
 5. **Git remotes:** `origin` = GitHub only. `gitea` = `http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk.git` (was `briank/nexus-kiosk`). Push both: `git push origin master` then `git push gitea master` (on LAN; Gitea credentials required).
 6. **Import vs deploy:** Code deploy does not update notes/checkmarks — run **Projects → Import** or `vm-deploy`/`vm-fix` full import after deploy.
 7. **Model usage convention on this project:** Opus for planning, Sonnet for coding.

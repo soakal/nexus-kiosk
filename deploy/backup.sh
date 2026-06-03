@@ -3,7 +3,9 @@
 # Runs via nexus-kiosk-backup.timer (every 6 hours) and before each auto-update.
 set -euo pipefail
 
-INSTALL_DIR="${INSTALL_DIR:-NEXUS_INSTALL_DIR_PLACEHOLDER}"
+# Auto-detect install dir from script location (works regardless of where it's installed)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="${INSTALL_DIR:-$(dirname "$SCRIPT_DIR")}"
 DATA_DIR="$INSTALL_DIR/server/data"
 BACKUP_DIR="/var/backups/nexus-kiosk"
 KEEP=28

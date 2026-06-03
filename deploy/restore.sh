@@ -3,7 +3,8 @@
 # Usage: restore.sh [list | <archive-path> | latest]
 set -euo pipefail
 
-INSTALL_DIR="${INSTALL_DIR:-NEXUS_INSTALL_DIR_PLACEHOLDER}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="${INSTALL_DIR:-$(dirname "$SCRIPT_DIR")}"
 DATA_DIR="$INSTALL_DIR/server/data"
 BACKUP_DIR="/var/backups/nexus-kiosk"
 SERVICE="dashboard-backend.service"

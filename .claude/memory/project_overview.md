@@ -7,29 +7,36 @@ metadata:
 
 # Nexus Kiosk Project Overview
 
-Nexus Kiosk replaces Dakboard. Started June 2026. GitHub: https://github.com/soakal/nexus-kiosk
+Wall dashboard (Dakboard replacement). GitHub: https://github.com/soakal/nexus-kiosk · Gitea: http://10.10.10.68:3000/briank/nexus-kiosk.git
 
 ## What it does
-- Displays M365 calendar events, SharePoint files, weather, live clock, next-event countdown
-- Runs on Linux (Raspberry Pi or Ubuntu) in Chromium kiosk mode, unattended 24/7
-- Auth: one-time Device Code Flow setup; tokens persist encrypted; auto-refresh every 55 min
-- Self-hosted Dakboard alternative with native M365 integration
 
-## Architecture
-Monorepo: `server/` (Node.js + Express) + `client/` (React + Vite)
-Entry point: `server/src/index.ts` (Express server)
-Client: `client/src/main.tsx` (React app)
+1. **Calendar / SharePoint** — Microsoft Graph (Device Code Flow), react-big-calendar, agenda, weather.
+2. **Project Board** (`/board`) — jobs from Active Projects `.xlsm`; notes, status checkmarks, ship dates; no Azure required for board.
 
-## Key Features (MVP)
-1. M365 authentication via Device Code Flow
-2. Calendar events display (react-big-calendar)
-3. SharePoint file picker and display
-4. Real-time clock and next-event countdown
-5. Encrypted token storage with auto-refresh
-6. Linux systemd kiosk deployment
+## Data (all under `server/data/`, gitignored)
 
-## Current Status
-- Core auth + token refresh implemented
-- API endpoints for calendar, files, weather sketched
-- React frontend with device code screen
-- Deployment script pending
+- `jobs.json` — spreadsheet import (job rows, ship dates).
+- `board-state.json` — per-job status, ship-date overrides, `notes[]` (user + Ops Schedule).
+- `board-config.json`, `tokens.json`, `config.json`.
+
+Full import must run via UI Import or `applyBoardImport` — not just `saveJobsFile`.
+
+## Test VM
+
+- **10.10.11.24** — `/home/vrsi/nexus-kiosk`, user `vrsi`.
+- Helpers: `scripts/vm-deploy.py`, `scripts/vm-fix.py`, `scripts/push-gitea.ps1`.
+- Testing: `DISABLE_AZURE=true` common; port 3001 conflicts with `/opt/tender/backend` possible.
+
+## Testing-phase network (see HANDOFF)
+
+- Corp network: phones usually cannot reach kiosk URL (no mobile layout testing off-LAN).
+- PC dev: cannot see VM VMware drag-drop `.xlsm` path — import file via browser or SSH on VM.
+- Production plan: O365 + SharePoint removes local-file dependency.
+
+## Current status (2026-06)
+
+- Board import: status mapping, NOTE → Ops Schedule notes, author-only note edit/delete.
+- Calendar: week view without `work_week`; spare-tab routing; PM on ship events.
+- Deploy: install-linux.sh, auto-update, backup/restore timers.
+- Pending: scheduled auto-import from file share, xlsx upgrade, full Azure on kiosk.

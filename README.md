@@ -28,7 +28,13 @@ node server/dist/index.js
 
 Linux install/update: see `deploy/install-linux.sh` in [CLAUDE.md](CLAUDE.md).
 
-Work VM: `vrsi@10.10.11.24`, install `/home/vrsi/nexus-kiosk`. VM helpers: `scripts/vm-deploy.py`, `scripts/vm-fix.py`.
+Work VM: `vrsi@10.10.11.24`, install `/home/vrsi/nexus-kiosk`.
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/vm-deploy.py` | Upload changed sources, build, restart, auto-import |
+| `scripts/vm-fix.py` | Re-run full spreadsheet import on VM |
+| `scripts/push-gitea.ps1` | `git push gitea master` (LAN) |
 
 ## Git
 

@@ -16,3 +16,8 @@ server/logs/
 client/dist/
 .DS_Store
 Thumbs.db
+
+# Ad-hoc VM/diag scripts written on the kiosk during debugging
+reimport.mjs
+diag-import.mjs
+vm-diag-status.mjs

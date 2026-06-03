@@ -207,7 +207,7 @@ If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` o
 **Ops**
 - `vm-deploy.py`: uploads board/calendar files, auto-import after deploy
 - `vm-fix.py`: full import via `applyBoardImport`
-- `scripts/push-gitea.ps1`, `vm-import-test.py`, `vm-diag-status.mjs` for diagnostics
+- `scripts/push-gitea.ps1` — push to Gitea over LAN IP
 
 ---
 

@@ -107,6 +107,8 @@ python scripts/vm-fix.py             # full import only (jobs + board-state)
 python scripts/push-gitea.ps1        # push master to Gitea (LAN IP)
 ```
 
+Legacy one-off scripts and static HTML mockups (`mockup*.html`, `vm-fix2.py`, diagnostic `vm-*-diag*`) were removed — use the three scripts above.
+
 Active spreadsheet on VM: `/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm`
 
 Port 3001 conflicts: `/opt/tender/backend` has stolen the port before — `vm-deploy` runs `fuser -k 3001/tcp`. Kiosk `.env` may have `DISABLE_AZURE=true` (test mode, empty M365 calendar; board ship dates still show).

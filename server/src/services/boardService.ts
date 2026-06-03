@@ -17,6 +17,7 @@ import type {
   Actor,
 } from '../types/board.js'
 import { DEFAULT_BOARD_CONFIG } from '../types/board.js'
+import { canonicalPersonName, samePerson } from './personIdentity.js'
 
 // ---------------------------------------------------------------------------
 // Path resolution (ESM: no __dirname)
@@ -484,11 +485,11 @@ export function parseXlsm(
 
     const job: Job = {
       jobNumber,
-      pm: getString(colMap.pm),
+      pm: canonicalPersonName(getString(colMap.pm)),
       customer: colMap.customer !== null
         ? (row[colMap.customer] != null ? String(row[colMap.customer]).trim() : '')
         : '',
-      materialsManager: getString(colMap.materialsManager),
+      materialsManager: canonicalPersonName(getString(colMap.materialsManager)),
       pabsComplete: getDate(colMap.pabsComplete),
       shipToPm: getDate(colMap.shipToPm),
       shipToCustomer: getDate(colMap.shipToCustomer),
@@ -867,6 +868,8 @@ export function getMergedJobs(): BoardJob[] {
 
     return {
       ...job,
+      pm: canonicalPersonName(job.pm),
+      materialsManager: canonicalPersonName(job.materialsManager),
       status: jobState.status,
       binderPrinted: spare ? false : (jobState.binderPrinted ?? false),
       notes: jobState.notes,
@@ -885,10 +888,8 @@ export function getMergedJobs(): BoardJob[] {
 export type BoardTab = 'project' | 'spare-parts' | 'archive'
 
 export function isSpareJob(job: Pick<Job, 'jobNumber' | 'pm'>, config: BoardConfig): boolean {
-  const spare = (config.spareCarrier ?? '').trim().toLowerCase()
-  const pm = (job.pm ?? '').trim().toLowerCase()
   const jn = job.jobNumber.toLowerCase()
-  return pm === spare || jn.startsWith('sp-') || jn.startsWith('sp ')
+  return samePerson(job.pm, config.spareCarrier) || jn.startsWith('sp-') || jn.startsWith('sp ')
 }
 
 export function getJobBoardTab(
@@ -938,8 +939,10 @@ export function getDerivedUsers(config: BoardConfig): BoardUser[] {
   const materialsNames = new Set<string>()
 
   for (const job of jobs) {
-    if (job.pm?.trim()) pmNames.add(job.pm.trim())
-    if (job.materialsManager?.trim()) materialsNames.add(job.materialsManager.trim())
+    if (job.pm?.trim()) pmNames.add(canonicalPersonName(job.pm.trim()))
+    if (job.materialsManager?.trim()) {
+      materialsNames.add(canonicalPersonName(job.materialsManager.trim()))
+    }
   }
 
   const users: BoardUser[] = []
@@ -971,7 +974,7 @@ export function getDerivedUsers(config: BoardConfig): BoardUser[] {
   }
 
   for (const name of config.extraUsers) {
-    const trimmed = name.trim()
+    const trimmed = canonicalPersonName(name.trim())
     if (!trimmed) continue
     if (!seen.has(trimmed)) {
       seen.add(trimmed)

@@ -6,6 +6,7 @@ import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
 import { filterJobsForTab, sortBoardJobsByShipDate } from './boardColors'
 import { BoardJob } from '../../types/board'
+import { canonicalPersonName, samePerson } from '../../utils/personIdentity'
 
 interface Props {
   tab: 'project' | 'spare-parts' | 'archive'
@@ -28,7 +29,7 @@ function loadFilterList(key: string): string[] {
 }
 
 function isSelected(selected: string[], name: string): boolean {
-  return selected.some((s) => norm(s) === norm(name))
+  return selected.some((s) => samePerson(s, name))
 }
 
 function PersonMultiSelect({
@@ -58,7 +59,7 @@ function PersonMultiSelect({
 
   const toggle = (name: string) => {
     if (isSelected(selected, name)) {
-      onChange(selected.filter((s) => norm(s) !== norm(name)))
+      onChange(selected.filter((s) => !samePerson(s, name)))
     } else {
       onChange([...selected, name])
     }
@@ -67,7 +68,7 @@ function PersonMultiSelect({
   const remove = (name: string, e: ReactMouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    onChange(selected.filter((s) => norm(s) !== norm(name)))
+    onChange(selected.filter((s) => !samePerson(s, name)))
   }
 
   return (
@@ -329,11 +330,11 @@ export function JobListView({ tab }: Props) {
   const tabFiltered = filterJobsForTab(jobs, tab, config)
 
   const uniquePms = Array.from(
-    new Set(tabFiltered.map((j) => j.pm.trim()).filter(Boolean)),
+    new Set(tabFiltered.map((j) => canonicalPersonName(j.pm)).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b))
 
   const uniqueMms = Array.from(
-    new Set(tabFiltered.map((j) => j.materialsManager.trim()).filter(Boolean)),
+    new Set(tabFiltered.map((j) => canonicalPersonName(j.materialsManager)).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b))
 
   const showPersonFilters = tab === 'project' || tab === 'spare-parts'
@@ -341,16 +342,16 @@ export function JobListView({ tab }: Props) {
 
   const toggleProjectManager = (name: string, anchorJobNumber?: string) => {
     setFilterPms((prev) => {
-      if (isSelected(prev, name)) return prev.filter((s) => norm(s) !== norm(name))
-      return [...prev, name]
+      if (isSelected(prev, name)) return prev.filter((s) => !samePerson(s, name))
+      return [...prev, canonicalPersonName(name)]
     })
     if (anchorJobNumber) setScrollToJobNumber(anchorJobNumber)
   }
 
   const toggleMaterialsManager = (name: string, anchorJobNumber?: string) => {
     setFilterMms((prev) => {
-      if (isSelected(prev, name)) return prev.filter((s) => norm(s) !== norm(name))
-      return [...prev, name]
+      if (isSelected(prev, name)) return prev.filter((s) => !samePerson(s, name))
+      return [...prev, canonicalPersonName(name)]
     })
     if (anchorJobNumber) setScrollToJobNumber(anchorJobNumber)
   }
@@ -359,12 +360,12 @@ export function JobListView({ tab }: Props) {
   let quickFiltered = tabFiltered
   if (filterPms.length > 0) {
     quickFiltered = quickFiltered.filter((j) =>
-      filterPms.some((n) => norm(j.pm) === norm(n)),
+      filterPms.some((n) => samePerson(j.pm, n)),
     )
   }
   if (filterMms.length > 0) {
     quickFiltered = quickFiltered.filter((j) =>
-      filterMms.some((n) => norm(j.materialsManager) === norm(n)),
+      filterMms.some((n) => samePerson(j.materialsManager, n)),
     )
   }
 
@@ -389,9 +390,9 @@ export function JobListView({ tab }: Props) {
   ) {
     filtered = quickFiltered
   } else if (activeUser.role === 'pm') {
-    filtered = quickFiltered.filter((j) => norm(j.pm) === norm(activeUser.name))
+    filtered = quickFiltered.filter((j) => samePerson(j.pm, activeUser.name))
   } else if (activeUser.role === 'materials') {
-    filtered = quickFiltered.filter((j) => norm(j.materialsManager) === norm(activeUser.name))
+    filtered = quickFiltered.filter((j) => samePerson(j.materialsManager, activeUser.name))
   } else {
     filtered = quickFiltered
   }

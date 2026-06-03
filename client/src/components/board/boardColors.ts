@@ -1,4 +1,5 @@
 import { JobStatus, STATUS_ORDER, BoardJob, BoardConfig } from '../../types/board'
+import { samePerson } from '../../utils/personIdentity'
 
 export function worstStatus(jobs: BoardJob[]): JobStatus {
   const filtered = jobs.filter(job => job.status !== 'none')
@@ -37,8 +38,6 @@ export function statusIndex(status: JobStatus): number {
   return STATUS_ORDER.indexOf(status)
 }
 
-const normPm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
-
 /** Stable hue from a string — used for customer name bubbles. */
 export function customerBubbleColor(name: string): string {
   let hash = 0
@@ -65,9 +64,8 @@ export function personBubbleColor(name: string): string {
  * (tab coloring/counts) and JobListView (list filtering) so they always agree.
  */
 export function isSpareJob(job: BoardJob, config: BoardConfig): boolean {
-  const spare = normPm(config.spareCarrier)
   const jn = job.jobNumber.toLowerCase()
-  return normPm(job.pm) === spare || jn.startsWith('sp-') || jn.startsWith('sp ')
+  return samePerson(job.pm, config.spareCarrier) || jn.startsWith('sp-') || jn.startsWith('sp ')
 }
 
 export type BoardTab = 'project' | 'spare-parts' | 'archive'

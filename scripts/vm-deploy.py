@@ -28,10 +28,8 @@ FILES = [
     "client/src/components/AgendaRail.tsx",
     "client/src/components/StalenessIndicator.tsx",
     "client/src/components/board/ImportView.tsx",
-    "client/src/components/board/UsersView.tsx",
     "client/src/components/board/NotesSection.tsx",
     "client/src/components/board/JobCard.tsx",
-    "client/src/components/board/ShipDateEditor.tsx",
     "client/src/components/board/BinderPrintedCheckbox.tsx",
     "client/src/types/board.ts",
     "client/src/api/boardApi.ts",
@@ -44,6 +42,8 @@ FILES = [
     "server/src/routes/board.ts",
     "server/src/routes/events.ts",
     "server/src/services/boardService.ts",
+    "server/src/services/personIdentity.ts",
+    "client/src/utils/personIdentity.ts",
     "client/src/types/index.ts",
 ]
 
@@ -94,7 +94,6 @@ def main() -> int:
 
     pw = PASSWORD.replace("'", "'\"'\"'")
     steps = [
-        f"echo '{pw}' | sudo -S chown -R vrsi:vrsi {INSTALL} 2>&1",
         f"cd {INSTALL}/client && npm run build",
         f"cd {INSTALL}/server && npm run build",
         f"echo '{pw}' | sudo -S cp {INSTALL}/deploy/dashboard-backend.service /etc/systemd/system/dashboard-backend.service 2>&1",

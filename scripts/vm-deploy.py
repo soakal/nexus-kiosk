@@ -2,19 +2,10 @@
 """Deploy local workspace files to the kiosk VM and rebuild."""
 import os
 import sys
-from pathlib import Path
 
 import paramiko
 
-ROOT = Path(__file__).resolve().parents[1]
-HOST = os.environ.get("VM_HOST", "10.10.11.24")
-USER = os.environ.get("VM_USER", "vrsi")
-PASSWORD = os.environ.get("VM_PASSWORD", "")
-INSTALL = "/home/vrsi/nexus-kiosk"
-XLSM = os.environ.get(
-    "VM_XLSM",
-    "/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm",
-)
+from vm_common import HOST, INSTALL, PASSWORD, ROOT, SSH_PORT, USER, XLSM
 
 FILES = [
     "client/src/components/board/boardColors.ts",
@@ -29,8 +20,10 @@ FILES = [
     "client/src/components/AgendaRail.tsx",
     "client/src/components/StalenessIndicator.tsx",
     "client/src/components/board/ImportView.tsx",
+    "client/src/components/board/UsersView.tsx",
     "client/src/components/board/NotesSection.tsx",
     "client/src/components/board/JobCard.tsx",
+    "client/src/components/board/ShipDateEditor.tsx",
     "client/src/components/board/BinderPrintedCheckbox.tsx",
     "client/src/types/board.ts",
     "client/src/api/boardApi.ts",
@@ -57,18 +50,29 @@ def run(client: paramiko.SSHClient, cmd: str, timeout: int = 600) -> tuple[str, 
     )
 
 
+def connect() -> paramiko.SSHClient:
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(
+        HOST,
+        port=SSH_PORT,
+        username=USER,
+        password=PASSWORD,
+        timeout=20,
+        allow_agent=False,
+        look_for_keys=False,
+    )
+    return client
+
+
 def main() -> int:
     if not PASSWORD:
         print("Set VM_PASSWORD environment variable", file=sys.stderr)
         return 1
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    print(f"Connecting to {USER}@{HOST}...")
-    client.connect(
-        HOST, username=USER, password=PASSWORD, timeout=20, allow_agent=False, look_for_keys=False
-    )
+    print(f"Connecting to {USER}@{HOST}:{SSH_PORT}...")
+    client = connect()
 
     sftp = client.open_sftp()
     print("Uploading changed files...")
@@ -95,10 +99,11 @@ def main() -> int:
 
     pw = PASSWORD.replace("'", "'\"'\"'")
     steps = [
+        f"echo '{pw}' | sudo -S chown -R {USER}:{USER} {INSTALL} 2>&1",
         f"cd {INSTALL}/client && npm run build",
         f"cd {INSTALL}/server && npm run build",
         f"echo '{pw}' | sudo -S cp {INSTALL}/deploy/dashboard-backend.service /etc/systemd/system/dashboard-backend.service 2>&1",
-        f"echo '{pw}' | sudo -S sed -i 's/KIOSK_USER/vrsi/; s|INSTALL_DIR|{INSTALL}|g' /etc/systemd/system/dashboard-backend.service 2>&1",
+        f"echo '{pw}' | sudo -S sed -i 's/KIOSK_USER/{USER}/; s|INSTALL_DIR|{INSTALL}|g' /etc/systemd/system/dashboard-backend.service 2>&1",
         f"echo '{pw}' | sudo -S systemctl daemon-reload 2>&1",
         "pgrep -f '/opt/tender/backend' && echo TENDER_RUNNING || echo no_tender",
         f"echo '{pw}' | sudo -S fuser -k 3001/tcp 2>/dev/null; sleep 2",
@@ -107,7 +112,6 @@ def main() -> int:
         "curl -sf http://localhost:3001/health | python3 -m json.tool",
         "systemctl is-active dashboard-backend",
         f"echo '{pw}' | sudo -S systemctl restart dashboard-kiosk 2>&1 || true",
-        # Full import: jobs + status checkmarks + NOTE column → board-state
         f'test -f "{XLSM}" && curl -sf -F "file=@{XLSM}" http://localhost:3001/api/board/import | python3 -m json.tool || echo "SKIP_IMPORT: xlsm not found"',
     ]
 
@@ -130,13 +134,10 @@ def fix_client_build() -> int:
         print("Set VM_PASSWORD", file=sys.stderr)
         return 1
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(
-        HOST, username=USER, password=PASSWORD, timeout=20, allow_agent=False, look_for_keys=False
-    )
+    client = connect()
     pw = PASSWORD.replace("'", "'\"'\"'")
     for cmd in [
+        f"echo '{pw}' | sudo -S chown -R {USER}:{USER} {INSTALL} 2>&1",
         f"echo '{pw}' | sudo -S rm -rf {INSTALL}/client/dist",
         f"cd {INSTALL}/client && npm run build",
         f"test -f {INSTALL}/client/dist/index.html && echo BUILD_OK || echo BUILD_FAIL",

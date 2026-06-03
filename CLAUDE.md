@@ -35,9 +35,19 @@ Frontend: React 18 + Vite + Tailwind 3 + react-big-calendar + TanStack Query v5 
 
 ## Project Board ("Projects")
 Self-contained job-tracking feature at the `/board` route. No Graph API / no auth required (user is chosen via a picker).
-Tabs/routes: `/board` (Project), `/board/spare-parts` (Spare Parts), `/board/users` (Users — picker + colors), `/board/import` (Import — XLSM import).
-Data persisted in server/data/{jobs,board-state,board-config}.json.
-WARNING: these three files MUST stay gitignored. deploy/auto-update.sh does a weekly `git reset --hard` (Sun 03:30 via nexus-kiosk-updater.timer); if any board data file is ever committed, the next update wipes all board notes/status. They are currently gitignored — keep them that way.
+Tabs/routes: `/board` (Project), `/board/spare-parts` (Spare Parts), `/board/archive`, `/board/users` (picker + colors), `/board/import` (XLSM import).
+
+**Two JSON files (both gitignored):**
+- `jobs.json` — spreadsheet rows (job #, customer, PM, ship dates). Refreshed on every import.
+- `board-state.json` — per-job `status`, `shipDateOverride`, and `notes[]` (user notes + one Ops Schedule note from import). Keyed by job number.
+
+Import (`POST /api/board/import` or `applyBoardImport`) must run to apply status checkmarks and NOTE column — deploy alone does not update board-state. `vm-deploy.py` runs a full import after each deploy when the Active Projects `.xlsm` is on the VM.
+
+**Import status rules (Status column):** Cancelled/Canceled rows omitted. `Shipped` → archive. `Ready to Ship` / `Partially Shipped` → ready checkmarks. `Build`, `Parts on order`, `Design`, `Labor Only` → in progress. On Hold unchanged.
+
+**Notes:** User notes (`authorId` = board user) — only that author may edit/delete (`PATCH`/`DELETE`). Ops Schedule notes (`authorId` = `system:ops-schedule`) come from spreadsheet NOTE column; not editable/deletable in UI.
+
+WARNING: board data files MUST stay gitignored. Weekly `git reset --hard` (Sun 03:30) wipes any committed data.
 
 ## Data directory (IMPORTANT)
 All persisted state lives in `server/data/`. tokenStore.ts, configService.ts, and boardService.ts now ALL resolve to the same `server/data` dir (previously token/config leaked to `<root>/data` and were NOT gitignored). Files: tokens.json, config.json, jobs.json, board-state.json, board-config.json — all gitignored.
@@ -83,6 +93,38 @@ Board data is backed up automatically every 6 hours via `nexus-kiosk-backup.time
 - Status-checkbox colors honor user-configured palette; unified spare-job classification (BoardHeader vs JobListView)
 - Deploy: `local attempt=0` bug fixed; connectivity preflight + guarded network steps
 - logs/*.log removed from git and ignored (/logs/ + *.log in .gitignore)
+
+## VM deploy (work kiosk 10.10.11.24)
+Install dir: `/home/vrsi/nexus-kiosk`. From dev machine (on LAN/VPN):
+
+```powershell
+$env:VM_PASSWORD='…'
+python scripts/vm-deploy.py          # SFTP sources, build, restart, auto-import xlsm
+python scripts/vm-fix.py             # full import only (jobs + board-state)
+python scripts/push-gitea.ps1        # push master to Gitea (LAN IP)
+```
+
+Active spreadsheet on VM: `/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm`
+
+Port 3001 conflicts: `/opt/tender/backend` has stolen the port before — `vm-deploy` runs `fuser -k 3001/tcp`. Kiosk `.env` may have `DISABLE_AZURE=true` (test mode, empty M365 calendar; board ship dates still show).
+
+## Git remotes
+- `origin` → https://github.com/soakal/nexus-kiosk.git (push/pull)
+- `gitea` → http://10.10.10.68:3000/briank/nexus-kiosk.git (LAN; hostname `vrsi-git` / `vrsi-git.vrsi.local` on internal DNS)
+
+Do not add a second push URL on `origin` for Gitea — use `git push gitea master` separately.
+
+## Calendar (dashboard)
+- Ship-date events from board jobs; subject `#job · PM`, `boardTab` routes calendar clicks to Project / Spare Parts / Archive.
+- Week view: always native `week` (7 columns). Weekends off = Mon-start + CSS clip (not `work_week` — crashes on weekend events).
+- Month weekends off: 7-day grid + clip right 2/7 columns.
+
+## Recently fixed (2026-06 session)
+- Full import pipeline: `applyBoardImport` writes status + Ops Schedule notes to `board-state.json` (not just `jobs.json`)
+- Cancelled rows skipped; Ready to Ship / Build / Parts on order status mapping
+- Calendar spare-job tab routing; PM on ship-date events; week view `work_week` removed
+- Author-only note edit (`PATCH`) and delete; inline note errors in UI
+- `vm-fix.py` / `vm-deploy.py` helpers; Gitea remote uses `10.10.10.68`
 
 ## Recently fixed (multi-agent review 2026-06)
 - Ship-date import: wrong column stolen by multiline header; parseDateValue returned garbage strings

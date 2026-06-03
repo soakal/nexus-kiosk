@@ -67,7 +67,34 @@ NEXUS_UPDATE=1 curl -fsSL https://raw.githubusercontent.com/soakal/nexus-kiosk/m
 
 There's also a **weekly auto-update** (systemd timer `nexus-kiosk-updater.timer`, Sun 03:30) that runs `deploy/auto-update.sh`, which does a `git reset --hard` + rebuild. Both install and auto-update now run a connectivity preflight first and skip/abort cleanly when offline.
 
-Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
+Active test VM: **10.10.11.24** (user `vrsi`, install `/home/vrsi/nexus-kiosk`). Gitea: **http://10.10.10.68:3000** (`vrsi-git.vrsi.local`). Home dev VM: Mint-VM-Proxmox.
+
+### VM deploy from Windows (LAN/VPN)
+
+```powershell
+$env:VM_PASSWORD='…'   # never commit
+python scripts/vm-deploy.py    # upload sources, npm build, restart backend+kiosk, curl full import
+python scripts/vm-fix.py         # re-import only (parseXlsm + applyBoardImport)
+python scripts/push-gitea.ps1  # git push gitea master via 10.10.10.68
+```
+
+Spreadsheet path on kiosk (VMware drag-drop):  
+`/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm`
+
+**Landmine:** `vm-fix.py` used to call only `saveJobsFile` — that refreshed ship dates but **not** notes/status. Always use full import (`applyBoardImport` / UI Import / `vm-deploy` post-step).
+
+**Landmine:** Port **3001** — stray `node /opt/tender/backend` has blocked Nexus; use `sudo fuser -k 3001/tcp` then `systemctl restart dashboard-backend`.
+
+---
+
+## Git remotes
+
+| Remote | URL | Use |
+|--------|-----|-----|
+| `origin` | `https://github.com/soakal/nexus-kiosk.git` | Primary; `git push origin master` |
+| `gitea` | `http://10.10.10.68:3000/briank/nexus-kiosk.git` | Internal; `git push gitea master` (Gitea login when prompted) |
+
+If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` or use the IP remote above.
 
 ---
 
@@ -84,11 +111,13 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 
 ## How the Board / Jobs feature works
 
-- Routes: `/board` (Projects), `/board/spare-parts`, `/board/users` (picker + per-user colors), `/board/import` (XLSM import).
-- **Import:** upload the `.xlsm`; the server parses the **"Active Projects"** sheet. PM values are lowercase emails. Spare-parts carrier = `matto@vrs-inc.com`. A job counts as "spare" if its PM is the spare carrier **or** its job number has the spare prefix (e.g. `SP-`).
-- **Per-job state** (notes, status, ship-date overrides) lives in `board-state.json`, keyed by job number. Jobs themselves live in `jobs.json`. Board config (colors, etc.) in `board-config.json`.
-- The board re-serves ship dates as calendar events too.
-- `isNew` badge exists for jobs added on (re-)import — relevant to the planned auto-pull of the spreadsheet from a file server.
+- Routes: `/board` (Projects), `/board/spare-parts`, `/board/archive`, `/board/users` (picker + colors), `/board/import` (XLSM import).
+- **Import:** upload the `.xlsm`; server parses **"Active Projects"** (column **NOTE** → Ops Schedule notes; **Status** → checkmarks). PM values are lowercased on import. Spare carrier = `matto@vrs-inc.com`. Spare job = PM matches carrier **or** job number starts with `sp`.
+- **`jobs.json`** — spreadsheet job rows only (no notes).
+- **`board-state.json`** — `{ jobs: { "9201-016": { status, shipDateOverride, notes[], updatedAt } } }`. User notes + at most one `system:ops-schedule` note per job.
+- **`board-config.json`** — colors, spare carrier, super user, extra users.
+- Calendar ship-date events: `#job · PM`, click opens correct tab (`boardTab`: project / spare-parts / archive).
+- `isNew` badge for jobs new since last import.
 
 ### Data directory — read this twice
 **Everything persisted lives in `server/data/`.** All three services (tokenStore, configService, boardService) now resolve there consistently (a prior bug leaked token/config to `<root>/data`, un-gitignored). The five files — `tokens.json`, `config.json`, `jobs.json`, `board-state.json`, `board-config.json` — are **all gitignored and MUST stay that way.** The weekly `git reset --hard` will wipe any committed data file, destroying everyone's notes/status. This is the project's #1 landmine.
@@ -145,12 +174,37 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 
 ---
 
+## Recently fixed (2026-06 kiosk session — commit 6f1894e)
+
+**Import / board-state**
+- `applyBoardImport()`: serializes status + Ops Schedule notes + `saveJobsFile` prune
+- Spreadsheet **NOTE** column → one note per job (`authorName`: Ops Schedule, `authorId`: `system:ops-schedule`); user notes never removed on re-import
+- Status: Cancelled skipped; Shipped → archive; Ready/Partially Shipped → `ready_to_ship`; Build/Parts on order/etc. → `in_progress`
+- `mapSpreadsheetStatusToJobStatus()` shared by XLSM and JSON import paths
+
+**Calendar**
+- Removed `work_week` (weekend ship dates crashed week view); weekends-off uses Mon-start `week` + CSS clip (month + week)
+- Calendar click uses `boardTab` → `/board/spare-parts?job=` etc.
+- Ship events show **PM** in subject (`formatJobPmLabel`)
+
+**Notes**
+- `PATCH /api/board/jobs/:jobNumber/notes/:noteId` — author only
+- Ops Schedule notes cannot be edited/deleted
+- Inline error in `NotesSection` / `JobCard`
+
+**Ops**
+- `vm-deploy.py`: uploads board/calendar files, auto-import after deploy
+- `vm-fix.py`: full import via `applyBoardImport`
+- `scripts/push-gitea.ps1`, `vm-import-test.py`, `vm-diag-status.mjs` for diagnostics
+
+---
+
 ## TODO backlog (remaining from the audit)
 
 ### High priority / correctness
 - [ ] **Verify 401 self-recovery on VM after auto-update**: The client debounce (4 polls before /setup redirect) and server readiness poll in auto-update.sh are in place. Confirm on 10.10.11.24 after a real `NEXUS_UPDATE=1` run that the kiosk self-recovers without manual reboot. Adjust poll count if token refresh takes >15s.
 - [ ] **Wire backup timer into NEXUS_UPDATE path**: `install-linux.sh` full-install enables `nexus-kiosk-backup.timer`. The `NEXUS_UPDATE=1` short-circuit does NOT re-install it. An existing VM running update-only won't get the 6-hourly timer until a full reinstall. Either add timer install to the update path or document that one full reinstall is required.
-- [ ] **Scheduled XLSM auto-import**: No server-side cron pulls the spreadsheet from the file server. Add a `node-cron` job (mirror `tokenRefresher` pattern) that reads from a configured file-server path and calls `parseXlsm` + `saveJobsFile` on schedule. `isNew` badge infra already built.
+- [ ] **Scheduled XLSM auto-import**: No server-side cron yet. `vm-deploy.py` imports on manual deploy only. Add `node-cron` + configured path calling `applyBoardImport` (not `saveJobsFile` alone). `isNew` badge infra already built.
 - [ ] **Upgrade `xlsx`** away from registry `0.18.5` — unpatched prototype-pollution (CVE-2023-30533) + ReDoS, and it parses **untrusted uploads** on the unauthenticated `/api/board/import`. Move to the SheetJS CDN build or an alternative.
 - [ ] **Validate the client-supplied jobs array** in `/import` (and the manual-JSON import path) — currently trusts `Job[]` verbatim and re-serves it as events. Add a 404/guard for status/note/ship-date on unknown job numbers.
 - [x] **Serialize board-state read-modify-write** (mutation queue or per-job optimistic concurrency) — concurrent edits currently clobber each other (lost notes/status). — DONE (import path now serialized)
@@ -164,7 +218,7 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 
 ### Medium
 - [ ] **Verify backup scripts on VM**: `backup.sh` / `restore.sh` / `nexus-kiosk-backup.timer` are in place but untested on the live VM (10.10.11.24). Verify: timer fires, archives appear under `/var/backups/nexus-kiosk/`, and `restore.sh latest` successfully stops → restores → restarts the backend.
-- [ ] **PM on calendar events**: Calendar events show `#{jobNumber} · {customer}`. If stakeholders need PM visible, add `job.pm` to subject/bodyPreview in `server/src/routes/events.ts`.
+- [x] **PM on calendar events** — subject is `#{jobNumber} · {PM}`; customer in agenda `bodyPreview`. — DONE (6f1894e)
 - [ ] **"Completed" vs "Ready to Ship" label**: Spec says In Process / Completed / Shipped; app uses In Progress / Ready to Ship / Shipped. Change `statusLabel('ready_to_ship')` in `client/src/components/board/boardColors.ts` + `statusLabels` in `server/src/routes/events.ts` if the literal word "Completed" is required. No data model change.
 - [ ] **Feature B (deferred): lightweight ADMIN_TOKEN gate**: When protection is needed, add `ADMIN_TOKEN` env var + ~20-line Express middleware on `POST /api/board/import`, `POST /api/board/config`, `POST /api/config`. No default credential. Use `x-admin-token` header (sidesteps CSRF). Land with `express-rate-limit`. Defer full RBAC until O365 identity arrives.
 - [ ] **OneDrive offsite backup** (deferred until O365 integration): Once Graph creds exist, add `Files.ReadWrite.AppFolder` scope and a daily timer that pushes the newest local `board-*.tar.gz` to OneDrive `/Apps/NexusKioskBackups/`.
@@ -182,7 +236,7 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 - [x] Extend `/health` (or add `/ready`) to report authenticated / testMode / token-expiry. — DONE
 
 ### Low / polish
-- [ ] **Visible note-save error feedback**: `onError` for `useAddJobNote`/`useDeleteJobNote` currently logs to `console.error` only. Add an inline error message in `NotesSection` so the user knows when a note failed to save.
+- [x] **Visible note-save error feedback** — `NotesSection` shows `actionError` from add/edit/delete mutations. — DONE (6f1894e)
 - [ ] **Server-side rowErrors truncation**: ImportView caps display at 50 rowErrors client-side. Also truncate server-side to first 50 + summary line to bound response payload for very broken spreadsheets.
 - [ ] AES-256-GCM + random per-file salt in `tokenStore` (currently AES-256-CBC, unauthenticated, hardcoded salt).
 - [x] `crypto.randomUUID()` for note IDs (hrtime-based IDs collide across restarts). — DONE
@@ -216,8 +270,9 @@ Active test VM: **10.10.11.24** (user `vrsi`). Home dev VM: Mint-VM-Proxmox.
 2. **Always `DISABLE_AZURE=true` in dev/test.** No SharePoint/O365 access in the testing environment.
 3. **Server won't start in production without `CORS_ORIGIN` and `ENCRYPTION_SECRET`** (and `AZURE_*` unless `DISABLE_AZURE=true`). This is intentional fail-fast behavior, not a bug.
 4. **`xlsx@0.18.5` is a known-vuln dependency parsing untrusted uploads** — top of the security TODO; don't add features on top of it without flagging.
-5. **Git remotes:** `origin` pushes to GitHub `soakal/nexus-kiosk`. A `gitea` remote still exists but its push is currently disabled (TODO to re-add).
-6. **Model usage convention on this project:** Opus for planning, Sonnet for coding.
-7. **Logs:** written under `server/logs/` (and `/logs/`); both are gitignored now. Don't re-add log files to git.
+5. **Git remotes:** `origin` = GitHub only. `gitea` = `http://10.10.10.68:3000/briank/nexus-kiosk.git`. Push both: `git push origin master` then `git push gitea master` (on LAN; Gitea credentials required).
+6. **Import vs deploy:** Code deploy does not update notes/checkmarks — run **Projects → Import** or `vm-deploy`/`vm-fix` full import after deploy.
+7. **Model usage convention on this project:** Opus for planning, Sonnet for coding.
+8. **Logs:** written under `server/logs/` (and `/logs/`); both are gitignored now. Don't re-add log files to git.
 
 Good luck, Cheesecake. Start with the board — it's the most-used surface and the audit TODOs there are the highest-leverage.

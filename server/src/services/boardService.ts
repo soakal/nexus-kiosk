@@ -797,7 +797,8 @@ export type BoardTab = 'project' | 'spare-parts' | 'archive'
 export function isSpareJob(job: Pick<Job, 'jobNumber' | 'pm'>, config: BoardConfig): boolean {
   const spare = (config.spareCarrier ?? '').trim().toLowerCase()
   const pm = (job.pm ?? '').trim().toLowerCase()
-  return pm === spare || job.jobNumber.toLowerCase().startsWith('sp')
+  const jn = job.jobNumber.toLowerCase()
+  return pm === spare || jn.startsWith('sp-') || jn.startsWith('sp ')
 }
 
 export function getJobBoardTab(

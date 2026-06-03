@@ -2,6 +2,8 @@
 
 Self-hosted wall dashboard: Microsoft 365 calendar + SharePoint files. Runs on Linux in Chromium kiosk.
 
+**Private proprietary software — Copyright © VRSI. See LICENSE.**
+
 ## Stack
 Backend: Node.js + Express 4 + MSAL Node (Device Code Flow) + Microsoft Graph API
 Frontend: React 18 + Vite + Tailwind 3 + react-big-calendar + TanStack Query v5 + Zustand v4

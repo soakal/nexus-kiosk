@@ -218,12 +218,12 @@ If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` o
 - [ ] **Wire backup timer into NEXUS_UPDATE path**: `install-linux.sh` full-install enables `nexus-kiosk-backup.timer`. The `NEXUS_UPDATE=1` short-circuit does NOT re-install it. An existing VM running update-only won't get the 6-hourly timer until a full reinstall. Either add timer install to the update path or document that one full reinstall is required.
 - [ ] **Scheduled XLSM auto-import**: No server-side cron yet. `vm-deploy.py` imports on manual deploy only. Add `node-cron` + configured path calling `applyBoardImport` (not `saveJobsFile` alone). `isNew` badge infra already built.
 - [ ] **Upgrade `xlsx`** away from registry `0.18.5` — unpatched prototype-pollution (CVE-2023-30533) + ReDoS, and it parses **untrusted uploads** on the unauthenticated `/api/board/import`. Move to the SheetJS CDN build or an alternative.
-- [ ] **Validate the client-supplied jobs array** in `/import` (and the manual-JSON import path) — currently trusts `Job[]` verbatim and re-serves it as events. Add a 404/guard for status/note/ship-date on unknown job numbers.
+- [x] **Validate the client-supplied jobs array** in `/import` — `validateJobsArray()` + 404 on unknown job for status/ship-date/notes. — DONE
 - [x] **Serialize board-state read-modify-write** (mutation queue or per-job optimistic concurrency) — concurrent edits currently clobber each other (lost notes/status). — DONE (import path now serialized)
 - [x] **`parseDateValue` timezone bug** — build dates from local Y/M/D components, not `toISOString().slice(0,10)`, to avoid off-by-one ship dates; also handle Excel error strings. — DONE (returns null for garbage, 4-digit year required)
-- [ ] **Guard `job.pm`** in `events.ts` so one bad job doesn't drop all board ship-date events.
+- [x] **Guard `job.pm`** in `events.ts` so one bad job doesn't drop all board ship-date events. — DONE (per-job try/catch + type guards)
 - [x] **Token-refresh resilience** — classify transient vs `invalid_grant`, add retry/backoff, and surface a visible "re-auth required" / TEST MODE state in the UI instead of failing silently. — DONE (60s quick retry on transient failure)
-- [ ] **Add `/api/*` 404 JSON handler** before the SPA `*` catch-all (unknown API routes currently return index.html / 200 HTML).
+- [x] **Add `/api/*` 404 JSON handler** before the SPA `*` catch-all. — DONE (`server/src/index.ts`)
 - [ ] **URL-encode interpolated Graph IDs** (siteId, driveId, calendarId, search) in `graph/sharepoint.ts` and `graph/events.ts`.
 - [x] **Import orphan/isNew handling** — prune stale board-state entries on re-import; preserve `isNew` until acknowledged. — DONE (prune now preserves notes; isNew logic unchanged)
 - [ ] **Auto-update.sh** — guard against missing/non-git `INSTALL_DIR` before cd/git; finite git transfer timeouts (`GIT_HTTP_LOW_SPEED_LIMIT/TIME`); defer `rm -rf node_modules` until npm reachability confirmed.
@@ -249,7 +249,7 @@ If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` o
 
 ### Low / polish
 - [x] **Visible note-save error feedback** — `NotesSection` shows `actionError` from add/edit/delete mutations. — DONE (6f1894e)
-- [ ] **Server-side rowErrors truncation**: ImportView caps display at 50 rowErrors client-side. Also truncate server-side to first 50 + summary line to bound response payload for very broken spreadsheets.
+- [x] **Server-side rowErrors truncation** — first 50 + summary; `rowErrorsTotal` in response. — DONE
 - [ ] AES-256-GCM + random per-file salt in `tokenStore` (currently AES-256-CBC, unauthenticated, hardcoded salt).
 - [x] `crypto.randomUUID()` for note IDs (hrtime-based IDs collide across restarts). — DONE
 - [ ] De-dupe Ctrl+S / Ctrl+F handlers between App and Dashboard.
@@ -261,9 +261,9 @@ If `vrsi-git` hostname fails on Windows, add `10.10.10.68 vrsi-git` to `hosts` o
 - [ ] Replace magic 120ms scroll-restore timeout in JobListView with rAF/observer.
 - [ ] Remove contradictory `defaultView` when CalendarView uses a controlled `view` prop.
 - [ ] Fix off-by-one in `start-kiosk.sh` health-check loop (use an explicit READY flag); fix literal `$INSTALL_DIR` in uninstall prompt; add clone error handling to `deploy-to-vm.sh` heredoc.
-- [ ] Spare-parts detection: match `sp-` prefix specifically, not any `sp*`.
-- [ ] Create `docs/azure-for-it-admin.md` (referenced by `.env.example`) or fix the dangling reference.
-- [ ] Write a top-level `README.md` (none exists).
+- [x] Spare-parts detection: match `sp-` / `sp ` prefix, not any `sp*`. — DONE
+- [x] `docs/azure-for-it-admin.md` exists (referenced by `.env.example`).
+- [x] Top-level `README.md` + proprietary `LICENSE` (VRSI).
 
 ---
 

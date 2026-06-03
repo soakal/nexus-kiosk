@@ -161,6 +161,7 @@ export function JobListView({ tab }: Props) {
   } else if (activeUser.role === 'materials') {
     filtered = tabFiltered.filter((j) => norm(j.materialsManager) === norm(activeUser.name))
   } else {
+    // super and any future roles see all jobs on the tab
     filtered = tabFiltered
   }
 

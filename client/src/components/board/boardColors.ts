@@ -41,12 +41,13 @@ const normPm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 
 /**
  * A job is a spare-parts job if its PM matches the configured spare carrier
- * OR its job number starts with 'sp' (case-insensitive). Shared by BoardHeader
+ * OR its job number starts with 'sp-' or 'sp ' (case-insensitive). Shared by BoardHeader
  * (tab coloring/counts) and JobListView (list filtering) so they always agree.
  */
 export function isSpareJob(job: BoardJob, config: BoardConfig): boolean {
   const spare = normPm(config.spareCarrier)
-  return normPm(job.pm) === spare || job.jobNumber.toLowerCase().startsWith('sp')
+  const jn = job.jobNumber.toLowerCase()
+  return normPm(job.pm) === spare || jn.startsWith('sp-') || jn.startsWith('sp ')
 }
 
 export type BoardTab = 'project' | 'spare-parts' | 'archive'

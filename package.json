@@ -2,6 +2,7 @@
   "name": "nexus-kiosk",
   "version": "1.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "workspaces": ["server", "client"],
   "scripts": {
     "dev:server": "npm run dev --workspace=server",

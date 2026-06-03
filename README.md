@@ -2,6 +2,8 @@
 
 Self-hosted wall dashboard: Microsoft 365 calendar, SharePoint files, and an operations **Project Board** (jobs from Excel, notes, ship-date workflow).
 
+**License:** Private and proprietary — see [LICENSE](LICENSE). Copyright © VRSI. All rights reserved.
+
 ## Quick start
 
 ```bash

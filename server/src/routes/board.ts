@@ -180,6 +180,15 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       warnings: warnings.length,
       rowErrors: rowErrors.length,
     })
+    const MAX_ROW_ERRORS = 50
+    const rowErrorsOut =
+      rowErrors.length > MAX_ROW_ERRORS
+        ? [
+            ...rowErrors.slice(0, MAX_ROW_ERRORS),
+            `…and ${rowErrors.length - MAX_ROW_ERRORS} more row error(s)`,
+          ]
+        : rowErrors
+
     res.json({
       imported: jobs.length,
       shippedApplied,
@@ -188,7 +197,8 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       notesImported,
       skipped,
       warnings,
-      rowErrors,
+      rowErrors: rowErrorsOut,
+      rowErrorsTotal: rowErrors.length,
     })
   } catch (err: unknown) {
     logger.error('Board import failed', { error: (err as Error).message })
@@ -349,6 +359,10 @@ boardRouter.delete('/jobs/:jobNumber/notes/:noteId', async (req: Request, res: R
     const { actor } = req.body as { actor?: Actor }
     if (!actor) {
       res.status(400).json({ error: 'actor required' })
+      return
+    }
+    if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
+      res.status(404).json({ error: 'Job not found' })
       return
     }
     const result = await deleteNote(req.params.jobNumber, req.params.noteId, actor)

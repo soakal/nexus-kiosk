@@ -106,26 +106,35 @@ eventsRouter.get(
         const rangeEnd = endParam.slice(0, 10);
 
         for (const job of boardJobs) {
-          if (!job.effectiveShipDate) continue;
-          if (job.status === 'shipped') continue;
-          if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
-          const customer = job.customer ?? '';
-          const pmLabel = formatJobPmLabel(job.pm ?? '');
-          const boardTab = getJobBoardTab(job, boardConfig);
-          normalized.push({
-            id: `board-ship-${job.jobNumber}`,
-            subject: `#${job.jobNumber} · ${pmLabel}`,
-            startDateTime: `${job.effectiveShipDate}T00:00:00`,
-            endDateTime: `${job.effectiveShipDate}T23:59:59`,
-            isAllDay: true,
-            bodyPreview: customer
-              ? `${customer} · ${statusLabels[job.status] ?? job.status}`
-              : (statusLabels[job.status] ?? job.status),
-            calendarId: 'board-jobs',
-            calendarName: 'Ship Dates',
-            calendarColor: statusColors[job.status] ?? '#475569',
-            boardTab,
-          });
+          try {
+            if (!job?.jobNumber || !job.effectiveShipDate) continue;
+            if (job.status === 'shipped') continue;
+            if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
+            const customer = typeof job.customer === 'string' ? job.customer : '';
+            const pmLabel = formatJobPmLabel(
+              typeof job.pm === 'string' ? job.pm : String(job.pm ?? ''),
+            );
+            const boardTab = getJobBoardTab(job, boardConfig);
+            normalized.push({
+              id: `board-ship-${job.jobNumber}`,
+              subject: `#${job.jobNumber} · ${pmLabel}`,
+              startDateTime: `${job.effectiveShipDate}T00:00:00`,
+              endDateTime: `${job.effectiveShipDate}T23:59:59`,
+              isAllDay: true,
+              bodyPreview: customer
+                ? `${customer} · ${statusLabels[job.status] ?? job.status}`
+                : (statusLabels[job.status] ?? job.status),
+              calendarId: 'board-jobs',
+              calendarName: 'Ship Dates',
+              calendarColor: statusColors[job.status] ?? '#475569',
+              boardTab,
+            });
+          } catch (jobErr) {
+            logger.warn('Skipped board ship-date event for job', {
+              jobNumber: job?.jobNumber,
+              error: jobErr instanceof Error ? jobErr.message : String(jobErr),
+            });
+          }
         }
       } catch {
         // Board data may not exist yet — skip silently

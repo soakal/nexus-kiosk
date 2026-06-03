@@ -184,6 +184,7 @@ export function JobListView({ tab }: Props) {
   const [filterPms, setFilterPms] = useState<string[]>([])
   const [filterMms, setFilterMms] = useState<string[]>([])
   const [scrollToJobNumber, setScrollToJobNumber] = useState<string | null>(null)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [spareGearOpen, setSpareGearOpen] = useState(false)
   const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -271,16 +272,16 @@ export function JobListView({ tab }: Props) {
     if (el) el.scrollTop = 0
   }, [search])
 
-  // Scroll to a job card after PM/MM filter (from chip row or card bubble)
+  // Scroll to a job card (agenda tap, PM/MM filter, etc.)
   useLayoutEffect(() => {
     if (!scrollToJobNumber) return
     const t = setTimeout(() => {
       const el = document.getElementById(`job-card-${scrollToJobNumber}`)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       setScrollToJobNumber(null)
-    }, 80)
+    }, 150)
     return () => clearTimeout(t)
-  }, [scrollToJobNumber, filterPms, filterMms, search])
+  }, [scrollToJobNumber, filterPms, filterMms, search, showAll])
 
   // Close gear popover on outside click
   useEffect(() => {
@@ -411,6 +412,26 @@ export function JobListView({ tab }: Props) {
 
   const sorted = sortBoardJobsByShipDate(searched, tab)
 
+  const activeFilterCount = filterPms.length + filterMms.length
+
+  const handleAgendaSelect = (jobNumber: string) => {
+    const visible = sorted.some((j) => j.jobNumber === jobNumber)
+    if (!visible) {
+      setShowAll(true)
+      setFilterPms([])
+      setFilterMms([])
+      if (search) {
+        setSearch('')
+        setInputValue('')
+      }
+    }
+    setScrollToJobNumber(jobNumber)
+  }
+
+  const scrollToAgenda = () => {
+    document.getElementById('board-ship-agenda')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const canToggle = tab !== 'spare-parts' && tab !== 'archive' && !!activeUser && !isSuper && activeUser.role !== 'manual'
   const spareNotConfigured = tab === 'spare-parts' && !spare
 
@@ -425,8 +446,8 @@ export function JobListView({ tab }: Props) {
 
   return (
     <div>
-      {/* Sticky header — compact on mobile so job cards scroll clear */}
-      <div className="sticky top-0 z-20 bg-[#0f1117] pt-3 pb-2 mb-2 md:pt-6 md:pb-3 md:mb-3">
+      {/* Filter bar scrolls away on mobile so job cards are not covered */}
+      <div className="md:sticky md:top-0 md:z-20 md:bg-[#0f1117] pt-3 pb-2 mb-2 md:pt-6 md:pb-3 md:mb-3">
         {/* Row 1: search */}
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -511,24 +532,41 @@ export function JobListView({ tab }: Props) {
           )}
         </div>
 
-        {/* Row 2: Project Manager + Materials Manager dropdowns (multi-select, bubbles inside) */}
+        {/* Row 2: PM/MM filters — collapsed by default on mobile */}
         {showPersonFilters && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
-            <PersonMultiSelect
-              label="Project Manager"
-              names={uniquePms}
-              selected={filterPms}
-              onChange={setFilterPms}
-              bubbleClass="bg-blue-600/50 border-blue-400/50"
-            />
-            <PersonMultiSelect
-              label="Materials Manager"
-              names={uniqueMms}
-              selected={filterMms}
-              onChange={setFilterMms}
-              bubbleClass="bg-violet-600/40 border-violet-400/50"
-            />
-          </div>
+          <>
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen((o) => !o)}
+              className="md:hidden mt-2 w-full flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-300"
+            >
+              <span>
+                Project / Materials filters
+                {activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ''}
+              </span>
+              <span className="text-slate-500">{mobileFiltersOpen ? '▴' : '▾'}</span>
+            </button>
+            <div
+              className={`grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3 ${
+                mobileFiltersOpen ? '' : 'hidden md:grid'
+              }`}
+            >
+              <PersonMultiSelect
+                label="Project Manager"
+                names={uniquePms}
+                selected={filterPms}
+                onChange={setFilterPms}
+                bubbleClass="bg-blue-600/50 border-blue-400/50"
+              />
+              <PersonMultiSelect
+                label="Materials Manager"
+                names={uniqueMms}
+                selected={filterMms}
+                onChange={setFilterMms}
+                bubbleClass="bg-violet-600/40 border-violet-400/50"
+              />
+            </div>
+          </>
         )}
 
         <div className="flex items-center justify-between mt-2">
@@ -586,17 +624,27 @@ export function JobListView({ tab }: Props) {
         </div>
       )}
 
-      {/* Mobile: 30-day ship agenda below jobs — tap to scroll to card */}
-      {tab !== 'archive' && sorted.length > 0 && (
-        <div className="md:hidden mt-4 pt-4 border-t border-slate-800">
+      {/* Mobile: full-tab 30-day ship agenda (not limited to My Jobs / search filters) */}
+      {tab !== 'archive' && tabFiltered.length > 0 && (
+        <div id="board-ship-agenda" className="md:hidden mt-6 pt-4 border-t border-slate-800 scroll-mt-4">
           <BoardShipAgenda
-            jobs={sorted}
+            jobs={tabFiltered}
             config={config}
             activeUser={activeUser}
             daysAhead={30}
-            onSelectJob={setScrollToJobNumber}
+            onSelectJob={handleAgendaSelect}
           />
         </div>
+      )}
+
+      {tab !== 'archive' && tabFiltered.length > 0 && (
+        <button
+          type="button"
+          onClick={scrollToAgenda}
+          className="md:hidden fixed bottom-4 right-4 z-40 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-900/50"
+        >
+          30-day agenda ↓
+        </button>
       )}
     </div>
   )

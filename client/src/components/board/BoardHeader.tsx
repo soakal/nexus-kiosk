@@ -60,8 +60,8 @@ export function BoardHeader() {
         </div>
       </div>
 
-      {/* Tabs row */}
-      <div className="flex items-end gap-1 px-4">
+      {/* Tabs row — horizontal scroll on narrow screens */}
+      <div className="flex items-end gap-1 px-4 overflow-x-auto">
         <NavLink
           to="/board"
           end

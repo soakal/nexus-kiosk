@@ -10,6 +10,7 @@ from vm_common import HOST, INSTALL, PASSWORD, ROOT, SSH_PORT, USER, XLSM
 FILES = [
     "client/src/components/board/boardColors.ts",
     "client/src/components/board/BoardLayout.tsx",
+    "client/src/components/board/BoardLayout.tsx",
     "client/src/components/board/BoardHeader.tsx",
     "client/src/components/board/JobListView.tsx",
     "client/src/components/board/BoardShipAgenda.tsx",

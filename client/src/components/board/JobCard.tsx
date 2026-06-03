@@ -161,7 +161,7 @@ export function JobCard({
   return (
     <div
       id={`job-card-${job.jobNumber}`}
-      className="rounded-xl border border-slate-700/50 p-4 mb-3 border-l-4 scroll-mt-80 md:scroll-mt-24"
+      className="rounded-xl border border-slate-700/50 p-4 mb-3 border-l-4 scroll-mt-3 md:scroll-mt-24"
       style={{ borderLeftColor: statusColor, backgroundColor: `${statusColor}18` }}
     >
       {/* Line 1: job number + customer bubble | original ship date */}

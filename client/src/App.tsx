@@ -21,7 +21,7 @@ function AppInner() {
   const location = useLocation();
 
   // Auth — always polling
-  const { isAuthenticated, isLoading: authLoading } = useAuthStatus(true);
+  const { isAuthenticated, needsReauth, isLoading: authLoading } = useAuthStatus(true);
 
   // Tracks consecutive unauthenticated polls so a brief server restart (which
   // returns 401/unauthenticated for a few seconds) does not bounce us to /setup.
@@ -57,7 +57,7 @@ function AppInner() {
   }, []);
 
   // Data hooks — only active when authenticated
-  const { events, dataUpdatedAt } = useEvents(
+  const { events, dataUpdatedAt, isError: calendarError } = useEvents(
     config.calendarIds,
     isAuthenticated,
     config.refreshInterval,
@@ -85,10 +85,13 @@ function AppInner() {
     }
 
     unauthCountRef.current += 1;
-    if (unauthCountRef.current >= 4 && !location.pathname.startsWith('/board')) {
+    if (
+      (needsReauth || unauthCountRef.current >= 4) &&
+      !location.pathname.startsWith('/board')
+    ) {
       navigate('/setup');
     }
-  }, [isAuthenticated, authLoading, navigate, setIsAuthenticated, location.pathname]);
+  }, [isAuthenticated, needsReauth, authLoading, navigate, setIsAuthenticated, location.pathname]);
 
   // Sync config to store whenever it changes
   useEffect(() => {
@@ -171,6 +174,8 @@ function AppInner() {
                 config={config}
                 isOnline={isOnline}
                 dataUpdatedAt={dataUpdatedAt}
+                calendarError={calendarError}
+                needsReauth={needsReauth}
                 displayMode={displayMode}
                 onSetDisplayMode={setDisplayMode}
                 onOpenSettings={() => setIsSettingsOpen(true)}

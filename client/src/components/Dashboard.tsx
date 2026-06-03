@@ -17,6 +17,8 @@ interface DashboardProps {
   config: AppConfig;
   isOnline: boolean;
   dataUpdatedAt: number;
+  calendarError?: boolean;
+  needsReauth?: boolean;
   displayMode: 'day' | 'week' | 'month';
   onSetDisplayMode: (mode: 'day' | 'week' | 'month') => void;
   onOpenSettings: () => void;
@@ -32,6 +34,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   config,
   isOnline,
   dataUpdatedAt,
+  calendarError = false,
+  needsReauth = false,
   displayMode,
   onSetDisplayMode,
   onOpenSettings,
@@ -75,7 +79,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [navigate]);
 
   const minutesSinceUpdate = dataUpdatedAt > 0 ? Math.floor((nowMs - dataUpdatedAt) / 60_000) : null;
-  const showBanner = !isOnline || (dataUpdatedAt > 0 && nowMs - dataUpdatedAt > STALE_THRESHOLD_MS);
+  const showBanner =
+    needsReauth ||
+    calendarError ||
+    !isOnline ||
+    (dataUpdatedAt > 0 && nowMs - dataUpdatedAt > STALE_THRESHOLD_MS);
 
   return (
     <div
@@ -83,7 +91,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     >
       {/* Staleness / offline banner */}
       {showBanner && (
-        <StalenessIndicator isOnline={isOnline} minutesSinceUpdate={minutesSinceUpdate} />
+        <StalenessIndicator
+          isOnline={isOnline}
+          minutesSinceUpdate={minutesSinceUpdate}
+          calendarError={calendarError}
+          needsReauth={needsReauth}
+        />
       )}
 
       {/* Top bar */}

@@ -2,6 +2,7 @@ export interface AuthStatusResponse {
   authenticated: boolean;
   polling: boolean;
   userEmail?: string;
+  needsReauth?: boolean;
 }
 
 export interface AuthStartResponse {

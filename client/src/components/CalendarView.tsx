@@ -59,21 +59,38 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   className = '',
   onSelectEvent,
 }) => {
-  const rbcEvents = useMemo<RBCCalendarEvent[]>(
-    () =>
-      events.map((ev) => {
-        const start = new Date(ev.startDateTime);
-        let end = new Date(ev.endDateTime);
-        // Graph API all-day events end at 00:00:00 the NEXT day (exclusive).
-        // Subtract 1 ms so react-big-calendar keeps them inside the start-day
-        // cell instead of bleeding into the following day's column.
-        if (ev.isAllDay && end > start && end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0) {
-          end = new Date(end.getTime() - 1);
-        }
-        return { title: ev.subject, start, end, allDay: ev.isAllDay, resource: ev };
-      }),
-    [events]
-  );
+  const rbcEvents = useMemo<RBCCalendarEvent[]>(() => {
+    const mapped: RBCCalendarEvent[] = [];
+    for (const ev of events) {
+      if (!ev?.startDateTime || !ev.endDateTime) continue;
+      const start = new Date(ev.startDateTime);
+      let end = new Date(ev.endDateTime);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+      // Graph API all-day events end at 00:00:00 the NEXT day (exclusive).
+      // Subtract 1 ms so react-big-calendar keeps them inside the start-day
+      // cell instead of bleeding into the following day's column.
+      if (
+        ev.isAllDay &&
+        end > start &&
+        end.getHours() === 0 &&
+        end.getMinutes() === 0 &&
+        end.getSeconds() === 0
+      ) {
+        end = new Date(end.getTime() - 1);
+      }
+      if (end <= start) {
+        end = new Date(start.getTime() + (ev.isAllDay ? 24 * 60 * 60 * 1000 - 1 : 60 * 60 * 1000));
+      }
+      mapped.push({
+        title: ev.subject?.trim() || '(No title)',
+        start,
+        end,
+        allDay: ev.isAllDay,
+        resource: ev,
+      });
+    }
+    return mapped;
+  }, [events]);
 
   const minTime = useMemo(() => {
     const d = new Date();
@@ -108,7 +125,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // In week view we use work_week which natively excludes weekends — no CSS needed.
   const dayPropGetter = useMemo(
     () => (date: Date) => {
-      if (!showWeekends && displayMode === 'month') {
+      if (!showWeekends && (displayMode === 'month' || displayMode === 'week')) {
         const day = date.getDay();
         if (day === 0 || day === 6) {
           return { className: 'rbc-weekend-dim' };
@@ -119,24 +136,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     [showWeekends, displayMode]
   );
 
-  // Week view: use work_week (built-in 5-day view) when weekends are off.
-  // This avoids CSS column-hiding which breaks multi-day event positioning.
-  // Month view: always use 'month' — weekends are dimmed but columns stay intact.
-  const rbcView: 'day' | 'week' | 'work_week' | 'month' =
-    displayMode === 'week' && !showWeekends
-      ? 'work_week'
-      : displayMode === 'day'
-      ? 'day'
-      : displayMode === 'month'
-      ? 'month'
-      : 'week';
+  // Always use full 'week' (7 columns). Do NOT use work_week when weekends are
+  // hidden — all-day events on Sat/Sun (e.g. board ship dates) crash RBC with
+  // "Cannot read properties of undefined (reading 'title')".
+  const rbcView: 'day' | 'week' | 'month' =
+    displayMode === 'day' ? 'day' : displayMode === 'month' ? 'month' : 'week';
 
   const localizer = showWeekends ? localizerSun : localizerMon;
 
-  // Only the month view dims weekends (week view uses work_week which drops
-  // them entirely). When weekends are hidden we use the Mon-start localizer,
-  // so the 7 columns are Mon..Sun → Saturday is col 6, Sunday is col 7.
-  const weekendsHidden = !showWeekends && displayMode === 'month';
+  // Dim weekend columns in month + week; keep all 7 columns for correct layout.
+  const weekendsHidden = !showWeekends && (displayMode === 'month' || displayMode === 'week');
 
   return (
     <div
@@ -271,6 +280,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
            gated the same way via dayPropGetter's rbc-weekend-dim. */
         .weekends-hidden .rbc-month-row .rbc-date-cell:nth-child(6),
         .weekends-hidden .rbc-month-row .rbc-date-cell:nth-child(7) {
+          opacity: 0.35;
+        }
+        /* Week/day time views: dim Sat/Sun (Mon-start localizer → cols 6–7). */
+        .weekends-hidden .rbc-time-view .rbc-header:nth-child(6),
+        .weekends-hidden .rbc-time-view .rbc-header:nth-child(7),
+        .weekends-hidden .rbc-time-view .rbc-day-bg:nth-child(6),
+        .weekends-hidden .rbc-time-view .rbc-day-bg:nth-child(7),
+        .weekends-hidden .rbc-time-view .rbc-time-column:nth-child(6),
+        .weekends-hidden .rbc-time-view .rbc-time-column:nth-child(7) {
           opacity: 0.35;
         }
       `}</style>

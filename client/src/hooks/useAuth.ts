@@ -12,5 +12,6 @@ export function useAuthStatus(poll = true) {
   return {
     ...q,
     isAuthenticated: q.data?.authenticated ?? false,
+    needsReauth: q.data?.needsReauth ?? false,
   };
 }

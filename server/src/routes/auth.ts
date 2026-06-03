@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { startDeviceCodeFlow, isPolling } from '../auth/deviceCodeFlow.js';
-import { isAuthenticated } from '../auth/tokenRefresher.js';
+import { isAuthenticated, needsReauthentication } from '../auth/tokenRefresher.js';
 import { getGraphClient } from '../graph/graphClient.js';
 import { logger } from '../utils/logger.js';
 
@@ -47,7 +47,12 @@ authRouter.get(
 
       if (process.env.DISABLE_AZURE === 'true') {
         logger.debug('Test mode: returning mock auth status');
-        res.json({ authenticated: true, polling: false, userEmail: 'test@example.com' });
+        res.json({
+          authenticated: true,
+          polling: false,
+          userEmail: 'test@example.com',
+          needsReauth: false,
+        });
         return;
       }
 
@@ -64,7 +69,12 @@ authRouter.get(
         }
       }
 
-      res.json({ authenticated, polling, userEmail });
+      res.json({
+        authenticated,
+        polling,
+        userEmail,
+        needsReauth: needsReauthentication(),
+      });
     } catch (err) {
       next(err);
     }

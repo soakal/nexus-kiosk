@@ -106,9 +106,22 @@ function parseDateValue(value: unknown): string | null {
     const trimmed = value.trim()
     if (!trimmed) return null
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
-    // Require a 4-digit year — reject 'TBD', 'N/A', 'Wk of 6/15', 'DD-Mon', ranges, etc.
-    if (!/\b\d{4}\b/.test(trimmed)) return null
     if (/\bTBD\b|\bN\/A\b|\bASAP\b|–|—|\bto\b/i.test(trimmed)) return null
+    // Excel often exports dates as m/d/yy or m/d/yyyy strings (no 4-digit year token).
+    const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(trimmed)
+    if (slashMatch) {
+      const month = parseInt(slashMatch[1], 10)
+      const day = parseInt(slashMatch[2], 10)
+      let year = parseInt(slashMatch[3], 10)
+      if (year < 100) year += year >= 50 ? 1900 : 2000
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        const d = new Date(year, month - 1, day)
+        if (!isNaN(d.getTime()) && d.getMonth() === month - 1) return formatLocalDate(d)
+      }
+      return null
+    }
+    // Require a 4-digit year for free-form strings — reject 'Wk of 6/15', 'DD-Mon', etc.
+    if (!/\b\d{4}\b/.test(trimmed)) return null
     const d = new Date(trimmed)
     if (isNaN(d.getTime())) return null
     return formatLocalDate(d)
@@ -189,6 +202,10 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       // so it will not match here either).
       raw.includes('ship from vrsi') ||
       raw.includes('ship to customer') ||
+      raw.includes('expected ship') ||
+      raw.includes('customer ship') ||
+      (raw.includes('ship from') && !raw.includes('pm')) ||
+      (raw.includes('ship') && raw.includes('date') && !raw.includes('pm')) ||
       (raw.includes('ship') && raw.includes('customer') && !raw.includes('pm'))
     ) {
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i

@@ -94,6 +94,7 @@ function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[]; imp
       errors.push(`Row ${i}: missing jobNumber`)
       return
     }
+    // Option A: only exact "Shipped" from the spreadsheet archives a job on import.
     if (toStr(o.status).trim().toLowerCase() === 'shipped') {
       importedStatuses[jobNumber] = 'shipped'
     }

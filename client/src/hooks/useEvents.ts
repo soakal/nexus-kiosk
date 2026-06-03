@@ -9,7 +9,12 @@ export function useEvents(
   enabled: boolean,
   refreshSec: number,
   displayMode: 'day' | 'week' | 'month' = 'week'
-): { events: CalendarEvent[]; isLoading: boolean; dataUpdatedAt: number } {
+): {
+  events: CalendarEvent[];
+  isLoading: boolean;
+  isError: boolean;
+  dataUpdatedAt: number;
+} {
   const { weekStart, weekEnd } = useMemo(() => {
     const now = new Date();
     // Fetch a range that fully covers the visible period for the current view:
@@ -51,6 +56,7 @@ export function useEvents(
     // Ensure we always return an array even if the query returns something unexpected
     events: Array.isArray(q.data) ? q.data : [],
     isLoading: q.isLoading,
+    isError: q.isError,
     dataUpdatedAt: q.dataUpdatedAt ?? 0,
   };
 }

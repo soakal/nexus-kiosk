@@ -53,17 +53,19 @@ Board data is backed up automatically every 6 hours via `nexus-kiosk-backup.time
 
   Backups location: /var/backups/nexus-kiosk/board-YYYY-MM-DD-HHMM.tar.gz
   Keeps: 28 copies (7 days × 4/day)
-  Manual backup: sudo bash /opt/nexus-kiosk/deploy/backup.sh
+  Manual backup: sudo bash $INSTALL_DIR/deploy/backup.sh
+  Scripts auto-detect install dir from their own location — no path config needed.
 
   List available backups:
-    sudo bash /opt/nexus-kiosk/deploy/restore.sh list
+    sudo bash $INSTALL_DIR/deploy/restore.sh list
   Restore latest:
-    sudo bash /opt/nexus-kiosk/deploy/restore.sh latest
+    sudo bash $INSTALL_DIR/deploy/restore.sh latest
   Restore specific:
-    sudo bash /opt/nexus-kiosk/deploy/restore.sh board-2026-06-02-1815.tar.gz
+    sudo bash $INSTALL_DIR/deploy/restore.sh board-2026-06-03-0854.tar.gz
 
-  NOTE: Full install required to activate the backup timer on an existing VM.
-  The NEXUS_UPDATE=1 path does NOT install new systemd units.
+  On the work VM (10.10.11.24): INSTALL_DIR=/home/vrsi/nexus-kiosk
+  Post-restore "WARNING: backend not responding" is harmless — backend just needs >3s to start.
+  Verify after restore: systemctl status dashboard-backend
 
 ## Health endpoint
   GET /health returns: { status, authenticated, needsReauth, testMode, ready }

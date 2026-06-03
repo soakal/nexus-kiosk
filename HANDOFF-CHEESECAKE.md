@@ -13,6 +13,18 @@ A self-hosted wall dashboard that runs full-screen in Chromium kiosk mode on a L
 
 Currently in a **testing phase**. No live SharePoint/O365 access in dev — always run with `DISABLE_AZURE=true` locally.
 
+### Testing-phase network limits (not expected in production)
+
+These quirks are **environment-only** while the wallboard runs against the test VM and a manually copied `.xlsm`. They should go away once the kiosk is on **Office 365 + SharePoint** (calendar and files via Graph, jobs eventually from a shared location in M365 instead of a VM drag-drop folder).
+
+| Where you are | What breaks | Why |
+|---------------|-------------|-----|
+| **Corporate network** (phone/tablet) | You generally **cannot use the mobile-friendly layout** — the test kiosk URL (`10.10.11.24:3001` or similar) is on the **plant/LAN**, not reachable from corp Wi‑Fi/VPN the same way. | Testing host is internal-only; not a bug in responsive CSS. On the wall kiosk itself you get the full desktop layout. |
+| **PC dev build** (your laptop) | You **cannot open the live Operations Schedule file** the kiosk uses for auto-import (`vm-deploy` / `vm-fix` path under VMware drag-and-drop on the VM). | That path exists **on the kiosk VM**, not on your machine or corp file shares. Use **Projects → Import** in the browser with a local copy of the `.xlsm`, or run deploy/import **on the VM** via SSH/scripts. |
+| **Production (planned)** | Calendar, SharePoint files, and job source tied to **O365** | No dependency on copying `.xlsm` into a VM cache folder; corp/mobile access follows normal M365 policies. |
+
+**Cheesecake takeaway:** If something “works on the kiosk but not on my phone on corp network” or “I can’t find the spreadsheet path from my PC,” that’s expected in testing — don’t chase it as a code defect unless it still fails after O365 cutover.
+
 ---
 
 ## Stack

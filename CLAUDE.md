@@ -94,6 +94,9 @@ Board data is backed up automatically every 6 hours via `nexus-kiosk-backup.time
 - Deploy: `local attempt=0` bug fixed; connectivity preflight + guarded network steps
 - logs/*.log removed from git and ignored (/logs/ + *.log in .gitignore)
 
+## Testing-phase network (HANDOFF has detail)
+On **corporate network**, phones usually cannot reach the test kiosk URL (no mobile layout testing off-LAN). On a **PC dev build**, the VM-only `.xlsm` drag-drop path is not visible — import via UI or SSH on the VM. Expected to resolve when calendar/files/jobs use **O365 + SharePoint**.
+
 ## VM deploy (work kiosk 10.10.11.24)
 Install dir: `/home/vrsi/nexus-kiosk`. From dev machine (on LAN/VPN):
 

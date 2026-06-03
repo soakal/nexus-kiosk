@@ -11,6 +11,7 @@ import {
   getDerivedUsers,
   setJobStatus,
   setShipDateOverride,
+  setJobBinderPrinted,
   addNote,
   updateNote,
   deleteNote,
@@ -136,6 +137,7 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       readyToShipApplied: 0,
       inProgressApplied: 0,
       notesImported: 0,
+      binderPrintedApplied: 0,
     }
 
     if (req.file) {
@@ -150,6 +152,7 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
         sourceFile,
         result.importedStatuses,
         result.importedNotes,
+        result.importedBinderPrinted,
       )
     } else if (Array.isArray(req.body.jobs)) {
       const { jobs: validated, errors: jsonErrors, importedStatuses } = validateJobsArray(req.body.jobs)
@@ -168,7 +171,13 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       return
     }
 
-    const { shippedApplied, readyToShipApplied, inProgressApplied, notesImported } = applyResult
+    const {
+      shippedApplied,
+      readyToShipApplied,
+      inProgressApplied,
+      notesImported,
+      binderPrintedApplied,
+    } = applyResult
     logger.info('Board import complete', {
       sourceFile,
       imported: jobs.length,
@@ -176,6 +185,7 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       readyToShipApplied,
       inProgressApplied,
       notesImported,
+      binderPrintedApplied,
       skipped,
       warnings: warnings.length,
       rowErrors: rowErrors.length,
@@ -195,6 +205,7 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       readyToShipApplied,
       inProgressApplied,
       notesImported,
+      binderPrintedApplied,
       skipped,
       warnings,
       rowErrors: rowErrorsOut,
@@ -294,6 +305,32 @@ boardRouter.patch('/jobs/:jobNumber/ship-date', async (req: Request, res: Respon
     }
 
     await setShipDateOverride(req.params.jobNumber, shipDateOverride ?? null, actor)
+
+    const job = getMergedJobs().find((j) => j.jobNumber === req.params.jobNumber)
+    res.json(job)
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /jobs/:jobNumber/binder-printed
+// ---------------------------------------------------------------------------
+boardRouter.patch('/jobs/:jobNumber/binder-printed', async (req: Request, res: Response) => {
+  try {
+    const { binderPrinted, actor } = req.body as { binderPrinted?: boolean; actor?: Actor }
+
+    if (typeof binderPrinted !== 'boolean') {
+      res.status(400).json({ error: 'binderPrinted (boolean) required' })
+      return
+    }
+
+    if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
+
+    await setJobBinderPrinted(req.params.jobNumber, binderPrinted, actor)
 
     const job = getMergedJobs().find((j) => j.jobNumber === req.params.jobNumber)
     res.json(job)

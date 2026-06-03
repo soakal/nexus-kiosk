@@ -198,8 +198,22 @@ interface ColumnMap {
   pabsComplete: number | null
   shipToPm: number | null
   shipToCustomer: number | null
+  binderPrinted: number | null
   status: number | null
   notes: number | null
+}
+
+/** Spreadsheet completion flags: 1 = complete/checked, 0 (or empty) = not complete. */
+export function parseSpreadsheetCompleteFlag(value: unknown): boolean {
+  if (value == null) return false
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+  const s = String(value).trim()
+  if (s === '1') return true
+  if (s === '0' || s === '') return false
+  const lower = s.toLowerCase()
+  if (lower === 'true' || lower === 'yes' || lower === 'y') return true
+  return false
 }
 
 function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: string[] } {
@@ -211,6 +225,7 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
     pabsComplete: null,
     shipToPm: null,
     shipToCustomer: null,
+    binderPrinted: null,
     status: null,
     notes: null,
   }
@@ -263,6 +278,11 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       (raw.includes('ship') && raw.includes('customer') && !raw.includes('pm'))
     ) {
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i
+    } else if (
+      raw === 'binder printed' ||
+      (raw.includes('binder') && raw.includes('print'))
+    ) {
+      if (colMap.binderPrinted === null) colMap.binderPrinted = i
     } else if (raw.includes('status')) {
       if (colMap.status === null) colMap.status = i
     } else if (
@@ -298,6 +318,9 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
   }
   if (colMap.notes === null) {
     warnings.push('Notes column not found — spreadsheet notes will not be imported')
+  }
+  if (colMap.binderPrinted === null) {
+    warnings.push('Binder Printed column not found — binder checkmarks will not be imported')
   }
 
   return { colMap, warnings }
@@ -380,6 +403,7 @@ export function parseXlsm(
   skipped: number
   importedStatuses: Record<string, JobStatus>
   importedNotes: Record<string, string>
+  importedBinderPrinted: Record<string, boolean>
 } {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
 
@@ -401,6 +425,7 @@ export function parseXlsm(
       skipped: 0,
       importedStatuses: {},
       importedNotes: {},
+      importedBinderPrinted: {},
     }
   }
 
@@ -416,6 +441,7 @@ export function parseXlsm(
   const jobs: Job[] = []
   const importedStatuses: Record<string, JobStatus> = {}
   const importedNotes: Record<string, string> = {}
+  const importedBinderPrinted: Record<string, boolean> = {}
   const rowErrors: string[] = []
   let skipped = 0
   const seenJobNumbers = new Set<string>()
@@ -485,10 +511,16 @@ export function parseXlsm(
     const noteText = getNoteText(colMap.notes)
     if (noteText) importedNotes[jobNumber] = noteText
 
+    if (colMap.binderPrinted !== null) {
+      importedBinderPrinted[jobNumber] = parseSpreadsheetCompleteFlag(
+        row[colMap.binderPrinted],
+      )
+    }
+
     jobs.push(job)
   }
 
-  return { jobs, warnings, rowErrors, skipped, importedStatuses, importedNotes }
+  return { jobs, warnings, rowErrors, skipped, importedStatuses, importedNotes, importedBinderPrinted }
 }
 
 /** Merge spreadsheet notes as a single Ops Schedule note per job; never remove or edit user notes. */
@@ -506,6 +538,7 @@ export function mergeImportedOpsScheduleNotes(importedNotes: Record<string, stri
       const existing = state[jobNumber] ?? {
         status: 'none' as JobStatus,
         shipDateOverride: null,
+        binderPrinted: false,
         notes: [],
         updatedAt: '',
       }
@@ -541,14 +574,16 @@ export interface BoardImportApplyResult {
   readyToShipApplied: number
   inProgressApplied: number
   notesImported: number
+  binderPrintedApplied: number
 }
 
-/** Apply status + ops notes to board-state, then save jobs.json (full import pipeline). */
+/** Apply status + binder + ops notes to board-state, then save jobs.json (full import pipeline). */
 export async function applyBoardImport(
   jobs: Job[],
   sourceFile: string,
   importedStatuses: Record<string, JobStatus>,
   importedNotes: Record<string, string>,
+  importedBinderPrinted: Record<string, boolean> = {},
 ): Promise<BoardImportApplyResult> {
   let shippedApplied = 0
   let readyToShipApplied = 0
@@ -559,9 +594,14 @@ export async function applyBoardImport(
     else if (status === 'ready_to_ship') readyToShipApplied++
     else if (status === 'in_progress') inProgressApplied++
   }
+  let binderPrintedApplied = 0
+  for (const [jobNumber, printed] of Object.entries(importedBinderPrinted)) {
+    await setJobBinderPrinted(jobNumber, printed)
+    if (printed) binderPrintedApplied++
+  }
   const notesImported = await mergeImportedOpsScheduleNotes(importedNotes)
   await saveJobsFile(jobs, sourceFile)
-  return { shippedApplied, readyToShipApplied, inProgressApplied, notesImported }
+  return { shippedApplied, readyToShipApplied, inProgressApplied, notesImported, binderPrintedApplied }
 }
 
 // ---------------------------------------------------------------------------
@@ -570,6 +610,7 @@ export async function applyBoardImport(
 type JobStateEntry = {
   status: JobStatus
   shipDateOverride: string | null
+  binderPrinted: boolean
   notes: JobNote[]
   updatedAt: string
   updatedBy?: string
@@ -594,10 +635,35 @@ export function getJobState(jobNumber: string): JobStateEntry {
     state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      binderPrinted: false,
       notes: [],
       updatedAt: '',
     }
   )
+}
+
+export function setJobBinderPrinted(
+  jobNumber: string,
+  binderPrinted: boolean,
+  actor?: Actor,
+): Promise<void> {
+  return runExclusive(() => {
+    const state = getBoardStateFile()
+    const existing = state[jobNumber] ?? {
+      status: 'none' as JobStatus,
+      shipDateOverride: null,
+      binderPrinted: false,
+      notes: [],
+      updatedAt: '',
+    }
+    state[jobNumber] = {
+      ...existing,
+      binderPrinted,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor?.name,
+    }
+    writeBoardState(state)
+  })
 }
 
 export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor): Promise<void> {
@@ -606,6 +672,7 @@ export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      binderPrinted: false,
       notes: [],
       updatedAt: '',
     }
@@ -625,6 +692,7 @@ export function setShipDateOverride(jobNumber: string, date: string | null, acto
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      binderPrinted: false,
       notes: [],
       updatedAt: '',
     }
@@ -644,6 +712,7 @@ export function addNote(jobNumber: string, text: string, actor: Actor): Promise<
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      binderPrinted: false,
       notes: [],
       updatedAt: '',
     }
@@ -771,6 +840,7 @@ export function getMergedJobs(): BoardJob[] {
     const jobState = state[job.jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      binderPrinted: false,
       notes: [],
       updatedAt: '',
     }
@@ -781,6 +851,7 @@ export function getMergedJobs(): BoardJob[] {
     return {
       ...job,
       status: jobState.status,
+      binderPrinted: jobState.binderPrinted ?? false,
       notes: jobState.notes,
       effectiveShipDate,
       shipDateOverridden,

@@ -21,12 +21,14 @@ const path = process.argv[2];
 const name = 'Copy of Operations Schedule - Saved on - Active.xlsm';
 const buf = readFileSync(path);
 const r = parseXlsm(buf, name);
-const applied = await applyBoardImport(r.jobs, name, r.importedStatuses, r.importedNotes);
+const applied = await applyBoardImport(r.jobs, name, r.importedStatuses, r.importedNotes, r.importedBinderPrinted);
 console.log(
   'OK',
   r.jobs.length,
   'notes',
   applied.notesImported,
+  'binder',
+  applied.binderPrintedApplied,
   'shipped',
   applied.shippedApplied,
   'rts',

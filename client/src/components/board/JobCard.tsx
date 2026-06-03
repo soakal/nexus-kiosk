@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { BoardJob, BoardUser, BoardConfig, JobStatus } from '../../types/board'
 import StatusCheckboxes from './StatusCheckboxes'
+import BinderPrintedCheckbox from './BinderPrintedCheckbox'
 import ShipDateEditor from './ShipDateEditor'
 import NotesSection from './NotesSection'
 import { statusLabel } from './boardColors'
 import {
   useSetJobStatus,
   useSetJobShipDate,
+  useSetJobBinderPrinted,
   useAddJobNote,
   useUpdateJobNote,
   useDeleteJobNote,
@@ -31,24 +33,29 @@ export function JobCard({ job, activeUser, config }: Props) {
 
   // Pending local state for deferred save
   const [pendingStatus, setPendingStatus] = useState<JobStatus>(job.status)
+  const [pendingBinderPrinted, setPendingBinderPrinted] = useState<boolean>(job.binderPrinted)
   const [pendingShipDate, setPendingShipDate] = useState<string | null>(job.effectiveShipDate)
 
   // Re-sync when saved values change (after successful Apply + refetch)
   useEffect(() => { setNotesOpen(job.notes.length > 0) }, [job.notes.length])
   useEffect(() => { setPendingStatus(job.status) }, [job.status])
+  useEffect(() => { setPendingBinderPrinted(job.binderPrinted) }, [job.binderPrinted])
   useEffect(() => { setPendingShipDate(job.effectiveShipDate) }, [job.effectiveShipDate])
 
   const setJobStatus = useSetJobStatus()
   const setJobShipDate = useSetJobShipDate()
+  const setJobBinderPrinted = useSetJobBinderPrinted()
   const addJobNote = useAddJobNote()
   const updateJobNote = useUpdateJobNote()
   const deleteJobNote = useDeleteJobNote()
   const [noteActionError, setNoteActionError] = useState<string | null>(null)
 
   const statusDirty = pendingStatus !== job.status
+  const binderDirty = pendingBinderPrinted !== job.binderPrinted
   const dateDirty = pendingShipDate !== job.effectiveShipDate
-  const isDirty = statusDirty || dateDirty
-  const isSaving = setJobStatus.isPending || setJobShipDate.isPending
+  const isDirty = statusDirty || binderDirty || dateDirty
+  const isSaving =
+    setJobStatus.isPending || setJobShipDate.isPending || setJobBinderPrinted.isPending
 
   // Presence: broadcast when dirty, show warning when someone else is editing
   const presenceMap = usePresence()
@@ -71,6 +78,13 @@ export function JobCard({ job, activeUser, config }: Props) {
     if (statusDirty) {
       setJobStatus.mutate({ jobNumber: job.jobNumber, status: pendingStatus, actor: activeUser })
     }
+    if (binderDirty) {
+      setJobBinderPrinted.mutate({
+        jobNumber: job.jobNumber,
+        binderPrinted: pendingBinderPrinted,
+        actor: activeUser,
+      })
+    }
     if (dateDirty) {
       setJobShipDate.mutate({ jobNumber: job.jobNumber, shipDateOverride: pendingShipDate, actor: activeUser })
     }
@@ -80,6 +94,7 @@ export function JobCard({ job, activeUser, config }: Props) {
 
   const handleCancel = () => {
     setPendingStatus(job.status)
+    setPendingBinderPrinted(job.binderPrinted)
     setPendingShipDate(job.effectiveShipDate)
     // Clear presence immediately so the lock releases the moment the user cancels
     if (userId) releasePresence(job.jobNumber, userId)
@@ -143,8 +158,14 @@ export function JobCard({ job, activeUser, config }: Props) {
       </div>
 
       {/* Status row */}
-      <div className="flex items-center gap-4 mt-2">
-        <span className="text-slate-500 text-xs">MM: {job.materialsManager}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+        <span className="text-slate-500 text-xs w-full sm:w-auto">MM: {job.materialsManager}</span>
+        <BinderPrintedCheckbox
+          jobNumber={job.jobNumber}
+          checked={pendingBinderPrinted}
+          disabled={!activeUser}
+          onChange={setPendingBinderPrinted}
+        />
         <StatusCheckboxes
           jobNumber={job.jobNumber}
           status={pendingStatus}

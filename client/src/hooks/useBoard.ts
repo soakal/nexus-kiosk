@@ -8,6 +8,7 @@ import {
   importJobsJson,
   setJobStatus,
   setJobShipDate,
+  setJobBinderPrinted,
   addJobNote,
   updateJobNote,
   deleteJobNote,
@@ -102,6 +103,24 @@ export function useSetJobShipDate() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['board', 'jobs'] });
       qc.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+}
+
+export function useSetJobBinderPrinted() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      jobNumber,
+      binderPrinted,
+      actor,
+    }: {
+      jobNumber: string
+      binderPrinted: boolean
+      actor: Actor
+    }) => setJobBinderPrinted(jobNumber, binderPrinted, actor),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['board', 'jobs'] });
     },
   });
 }

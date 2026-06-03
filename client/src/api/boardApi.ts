@@ -110,6 +110,24 @@ export async function setJobShipDate(
   return response.json();
 }
 
+export async function setJobBinderPrinted(
+  jobNumber: string,
+  binderPrinted: boolean,
+  actor: Actor
+): Promise<BoardJob> {
+  const response = await fetch(`/api/board/jobs/${encodeURIComponent(jobNumber)}/binder-printed`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ binderPrinted, actor })
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to set binder printed: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export async function addJobNote(
   jobNumber: string,
   text: string,

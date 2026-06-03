@@ -30,6 +30,7 @@ FILES = [
     "client/src/components/board/ImportView.tsx",
     "client/src/components/board/NotesSection.tsx",
     "client/src/components/board/JobCard.tsx",
+    "client/src/components/board/BinderPrintedCheckbox.tsx",
     "client/src/types/board.ts",
     "client/src/api/boardApi.ts",
     "server/src/types/board.ts",

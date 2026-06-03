@@ -4,7 +4,7 @@
  */
 const ALIAS_GROUPS: readonly (readonly string[])[] = [
   ['phil g', 'philg@vrsinc', 'philg@vrs-inc.com'],
-  ['ted h', 'tedh@vrs-inc.com'],
+  ['ted h', 'tedh', 'tedh@vrs-inc.com'],
 ]
 
 const CANONICAL_BY_KEY = new Map<string, string>()

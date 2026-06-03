@@ -110,20 +110,22 @@ eventsRouter.get(
             if (!job?.jobNumber || !job.effectiveShipDate) continue;
             if (job.status === 'shipped') continue;
             if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
-            const customer = typeof job.customer === 'string' ? job.customer : '';
+            const customer =
+              typeof job.customer === 'string' ? job.customer.trim() : '';
             const pmLabel = formatJobPmLabel(
               typeof job.pm === 'string' ? job.pm : String(job.pm ?? ''),
             );
             const boardTab = getJobBoardTab(job, boardConfig);
+            const subjectParts = [`#${job.jobNumber}`];
+            if (customer) subjectParts.push(customer);
+            subjectParts.push(pmLabel);
             normalized.push({
               id: `board-ship-${job.jobNumber}`,
-              subject: `#${job.jobNumber} · ${pmLabel}`,
+              subject: subjectParts.join(' · '),
               startDateTime: `${job.effectiveShipDate}T00:00:00`,
               endDateTime: `${job.effectiveShipDate}T23:59:59`,
               isAllDay: true,
-              bodyPreview: customer
-                ? `${customer} · ${statusLabels[job.status] ?? job.status}`
-                : (statusLabels[job.status] ?? job.status),
+              bodyPreview: statusLabels[job.status] ?? job.status,
               calendarId: 'board-jobs',
               calendarName: 'Ship Dates',
               calendarColor: statusColors[job.status] ?? '#475569',

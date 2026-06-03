@@ -122,7 +122,7 @@ Port 3001 conflicts: `/opt/tender/backend` has stolen the port before — `vm-de
 Do not add a second push URL on `origin` for Gitea — use `git push gitea master` separately.
 
 ## Calendar (dashboard)
-- Ship-date events from board jobs; subject `#job · PM`, `boardTab` routes calendar clicks to Project / Spare Parts / Archive.
+- Ship-date events from board jobs; subject `#job · customer · PM`, `boardTab` routes calendar clicks to Project / Spare Parts / Archive.
 - Week view: always native `week` (7 columns). Weekends off = Mon-start + CSS clip (not `work_week` — crashes on weekend events).
 - Month weekends off: 7-day grid + clip right 2/7 columns.
 

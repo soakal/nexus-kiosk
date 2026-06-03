@@ -197,7 +197,7 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 **Calendar**
 - Removed `work_week` (weekend ship dates crashed week view); weekends-off uses Mon-start `week` + CSS clip (month + week)
 - Calendar click uses `boardTab` → `/board/spare-parts?job=` etc.
-- Ship events show **PM** in subject (`formatJobPmLabel`)
+- Ship events show **job # · customer · PM** in calendar subject; status in agenda `bodyPreview`
 
 **Notes**
 - `PATCH /api/board/jobs/:jobNumber/notes/:noteId` — author only
@@ -230,7 +230,7 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 
 ### Medium
 - [ ] **Verify backup scripts on VM**: `backup.sh` / `restore.sh` / `nexus-kiosk-backup.timer` are in place but untested on the live VM (10.10.11.24). Verify: timer fires, archives appear under `/var/backups/nexus-kiosk/`, and `restore.sh latest` successfully stops → restores → restarts the backend.
-- [x] **PM on calendar events** — subject is `#{jobNumber} · {PM}`; customer in agenda `bodyPreview`. — DONE (6f1894e)
+- [x] **PM + customer on calendar events** — subject `#{jobNumber} · {customer} · {PM}`; status in `bodyPreview`. — DONE
 - [ ] **"Completed" vs "Ready to Ship" label**: Spec says In Process / Completed / Shipped; app uses In Progress / Ready to Ship / Shipped. Change `statusLabel('ready_to_ship')` in `client/src/components/board/boardColors.ts` + `statusLabels` in `server/src/routes/events.ts` if the literal word "Completed" is required. No data model change.
 - [ ] **Feature B (deferred): lightweight ADMIN_TOKEN gate**: When protection is needed, add `ADMIN_TOKEN` env var + ~20-line Express middleware on `POST /api/board/import`, `POST /api/board/config`, `POST /api/config`. No default credential. Use `x-admin-token` header (sidesteps CSRF). Land with `express-rate-limit`. Defer full RBAC until O365 identity arrives.
 - [ ] **OneDrive offsite backup** (deferred until O365 integration): Once Graph creds exist, add `Files.ReadWrite.AppFolder` scope and a daily timer that pushes the newest local `board-*.tar.gz` to OneDrive `/Apps/NexusKioskBackups/`.

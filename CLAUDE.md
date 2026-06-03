@@ -48,6 +48,32 @@ Server fails fast in bootstrap() if required vars are missing. Required: ENCRYPT
 ## Connectivity checks (deploy scripts)
 install-linux.sh and auto-update.sh now run a connectivity preflight (github.com, raw.githubusercontent.com, registry.npmjs.org, deb.nodesource.com) before any network op. auto-update.sh skips the run (exit 0) when offline so the weekly unattended update never strands the kiosk. git/npm/apt steps are guarded with clear failure messages.
 
+## Backup / Restore
+Board data is backed up automatically every 6 hours via `nexus-kiosk-backup.timer`.
+
+  Backups location: /var/backups/nexus-kiosk/board-YYYY-MM-DD-HHMM.tar.gz
+  Keeps: 28 copies (7 days × 4/day)
+  Manual backup: sudo bash /opt/nexus-kiosk/deploy/backup.sh
+
+  List available backups:
+    sudo bash /opt/nexus-kiosk/deploy/restore.sh list
+  Restore latest:
+    sudo bash /opt/nexus-kiosk/deploy/restore.sh latest
+  Restore specific:
+    sudo bash /opt/nexus-kiosk/deploy/restore.sh board-2026-06-02-1815.tar.gz
+
+  NOTE: Full install required to activate the backup timer on an existing VM.
+  The NEXUS_UPDATE=1 path does NOT install new systemd units.
+
+## Health endpoint
+  GET /health returns: { status, authenticated, needsReauth, testMode, ready }
+  ready:true = token initialization complete (any outcome) — used by auto-update.sh
+  after restart to know the backend is fully up before declaring success.
+
+## Graceful shutdown
+  Server handles SIGTERM/SIGINT: drains in-flight requests (up to 10s), then exits.
+  auto-update.sh uses `systemctl stop` before any force-kill.
+
 ## Recently fixed (audit 2026-06)
 - Data-dir path inconsistency (token/config now in server/data, gitignored)
 - Atomic JSON writes (temp-file + rename) for board/config/token state
@@ -55,4 +81,17 @@ install-linux.sh and auto-update.sh now run a connectivity preflight (github.com
 - Status-checkbox colors honor user-configured palette; unified spare-job classification (BoardHeader vs JobListView)
 - Deploy: `local attempt=0` bug fixed; connectivity preflight + guarded network steps
 - logs/*.log removed from git and ignored (/logs/ + *.log in .gitignore)
-See HANDOFF-CHEESECAKE.md for the remaining audit TODO backlog.
+
+## Recently fixed (multi-agent review 2026-06)
+- Ship-date import: wrong column stolen by multiline header; parseDateValue returned garbage strings
+- Import now reports rowErrors + skipped count; UI shows amber partial-success banner
+- JSON import path is partial (valid rows proceed even if some rows fail)
+- pruneOrphanedBoardState preserves entries with notes; import path serialized through runExclusive
+- writeJsonFile: fsync before rename + try/finally .tmp cleanup
+- Note IDs: crypto.randomUUID() (was hrtime-based, could collide across restarts)
+- 401 after update: /health ready field + auto-update HTTP readiness poll + client redirect debounce
+- AgendaRail redesigned: time-column layout, accent bar, Now badge, dated section headers
+- Calendar weekend dimming: positional nth-child replaced with weekends-hidden wrapper class
+- Backup/restore scripts added; auto-update creates backup before each update
+
+See HANDOFF-CHEESECAKE.md for the full TODO backlog.

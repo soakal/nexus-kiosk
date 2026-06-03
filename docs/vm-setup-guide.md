@@ -185,7 +185,7 @@ sudo tail -f /var/log/nexus-kiosk/update.log
 To remove the dashboard and all installed components:
 
 ```bash
-bash ~/nexus-kiosk/deploy/uninstall-linux.sh
+NON_INTERACTIVE=1 sudo bash ~/nexus-kiosk/deploy/uninstall-linux.sh
 ```
 
-This will stop and remove the systemd services, delete the log directory, and remove the `nexus-kiosk` symlink. Your `.env` file and any local data in the install directory are left in place so you can recover them if needed.
+This stops all systemd services (backend, kiosk, backup, auto-update), removes the install directory (including `.env`, `server/data/*.json` — jobs, notes, status), log directory, and all `/var/backups/nexus-kiosk*` archives. Use interactive mode (without `NON_INTERACTIVE=1`) for confirmation prompts.

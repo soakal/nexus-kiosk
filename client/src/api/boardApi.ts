@@ -95,14 +95,15 @@ export async function setJobStatus(
 export async function setJobShipDate(
   jobNumber: string,
   shipDateOverride: string | null,
-  actor: Actor
+  actor: Actor,
+  shipDateOverrideNote?: string | null,
 ): Promise<BoardJob> {
   const response = await fetch(`/api/board/jobs/${jobNumber}/ship-date`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ shipDateOverride, actor })
+    body: JSON.stringify({ shipDateOverride, shipDateOverrideNote, actor })
   });
   if (!response.ok) {
     throw new Error(`Failed to set job ship date: ${response.statusText}`);

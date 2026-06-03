@@ -28,7 +28,9 @@ export interface BoardJob extends Job {
   binderPrinted: boolean
   notes: JobNote[]
   effectiveShipDate: string | null
+  originalShipDate: string | null
   shipDateOverridden: boolean
+  shipDateOverrideNote: string | null
   isNew: boolean
 }
 

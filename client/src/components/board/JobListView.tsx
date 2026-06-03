@@ -13,6 +13,120 @@ interface Props {
 
 const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 
+function loadFilterList(key: string): string[] {
+  const raw = sessionStorage.getItem(key)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (Array.isArray(parsed)) {
+      return parsed.filter((x): x is string => typeof x === 'string' && x.trim()).map((x) => x.trim())
+    }
+  } catch {
+    return raw.trim() ? [raw.trim()] : []
+  }
+  return []
+}
+
+function isSelected(selected: string[], name: string): boolean {
+  return selected.some((s) => norm(s) === norm(name))
+}
+
+function PersonMultiSelect({
+  label,
+  names,
+  selected,
+  onChange,
+}: {
+  label: string
+  names: string[]
+  selected: string[]
+  onChange: (next: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  if (names.length === 0) return null
+
+  const toggle = (name: string) => {
+    if (isSelected(selected, name)) {
+      onChange(selected.filter((s) => norm(s) !== norm(name)))
+    } else {
+      onChange([...selected, name])
+    }
+  }
+
+  const buttonLabel =
+    selected.length === 0
+      ? 'All'
+      : selected.length === 1
+        ? selected[0]
+        : `${selected.length} selected`
+
+  return (
+    <div ref={ref} className="relative min-w-0 flex-1">
+      <label className="text-slate-500 text-xs block mb-1">{label}</label>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+          selected.length > 0
+            ? 'bg-blue-600/20 border-blue-500/50 text-slate-100'
+            : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500'
+        }`}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        <span className="truncate text-left">{buttonLabel}</span>
+        <span className="text-slate-500 shrink-0">{open ? '▴' : '▾'}</span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 sm:right-auto sm:min-w-[16rem] top-full mt-1 z-40 max-h-64 overflow-y-auto rounded-xl border border-slate-600 bg-slate-800 shadow-xl py-1">
+          <button
+            type="button"
+            onClick={() => {
+              onChange([])
+              setOpen(false)
+            }}
+            className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:bg-slate-700/80 hover:text-slate-200"
+          >
+            Clear all
+          </button>
+          <div className="border-t border-slate-700/80 my-1" />
+          {names.map((name) => {
+            const checked = isSelected(selected, name)
+            return (
+              <label
+                key={name}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-700/60 text-sm text-slate-200"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(name)}
+                  className="rounded border-slate-500 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800"
+                />
+                <span className="truncate" title={name}>
+                  {name}
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function JobListView({ tab }: Props) {
   const { jobs, isLoading } = useBoardJobs()
   const { config } = useBoardConfig()
@@ -25,6 +139,9 @@ export function JobListView({ tab }: Props) {
   const [showAll, setShowAll] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [search, setSearch] = useState('')
+  const [filterPms, setFilterPms] = useState<string[]>([])
+  const [filterMms, setFilterMms] = useState<string[]>([])
+  const [scrollToJobNumber, setScrollToJobNumber] = useState<string | null>(null)
   const [spareGearOpen, setSpareGearOpen] = useState(false)
   const gearRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -35,6 +152,8 @@ export function JobListView({ tab }: Props) {
   const scrollKey = `board-scroll-${tab}-${userId}`
   const searchKey = `board-search-${tab}-${userId}`
   const showAllKey = `board-showall-${tab}-${userId}`
+  const filterPmKey = `board-filter-pm-${tab}-${userId}`
+  const filterMmKey = `board-filter-mm-${tab}-${userId}`
 
   // Restore scroll + search + showAll on mount; ?job= param takes priority over saved state
   useEffect(() => {
@@ -47,12 +166,16 @@ export function JobListView({ tab }: Props) {
     }
     const savedSearch = sessionStorage.getItem(searchKey) ?? ''
     const savedShowAll = sessionStorage.getItem(showAllKey) === 'true'
+    const savedFilterPm = loadFilterList(filterPmKey)
+    const savedFilterMm = loadFilterList(filterMmKey)
     if (savedSearch) {
       suppressScrollReset.current = true
       setInputValue(savedSearch)
       setSearch(savedSearch)
     }
     if (savedShowAll) setShowAll(true)
+    if (savedFilterPm.length) setFilterPms(savedFilterPm)
+    if (savedFilterMm.length) setFilterMms(savedFilterMm)
     const savedScroll = sessionStorage.getItem(scrollKey)
     if (savedScroll) {
       // Delay so the restored search + rendered list settle before scrolling
@@ -75,6 +198,16 @@ export function JobListView({ tab }: Props) {
     sessionStorage.setItem(showAllKey, String(showAll))
   }, [showAll, showAllKey])
 
+  useEffect(() => {
+    if (filterPms.length) sessionStorage.setItem(filterPmKey, JSON.stringify(filterPms))
+    else sessionStorage.removeItem(filterPmKey)
+  }, [filterPms, filterPmKey])
+
+  useEffect(() => {
+    if (filterMms.length) sessionStorage.setItem(filterMmKey, JSON.stringify(filterMms))
+    else sessionStorage.removeItem(filterMmKey)
+  }, [filterMms, filterMmKey])
+
   // Persist scroll position
   useEffect(() => {
     const el = document.getElementById('board-scroll')
@@ -95,6 +228,17 @@ export function JobListView({ tab }: Props) {
     const el = document.getElementById('board-scroll')
     if (el) el.scrollTop = 0
   }, [search])
+
+  // Scroll to a job card after PM/MM filter (from chip row or card bubble)
+  useLayoutEffect(() => {
+    if (!scrollToJobNumber) return
+    const t = setTimeout(() => {
+      const el = document.getElementById(`job-card-${scrollToJobNumber}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setScrollToJobNumber(null)
+    }, 80)
+    return () => clearTimeout(t)
+  }, [scrollToJobNumber, filterPms, filterMms, search])
 
   // Close gear popover on outside click
   useEffect(() => {
@@ -144,6 +288,46 @@ export function JobListView({ tab }: Props) {
 
   const tabFiltered = filterJobsForTab(jobs, tab, config)
 
+  const uniquePms = Array.from(
+    new Set(tabFiltered.map((j) => j.pm.trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const uniqueMms = Array.from(
+    new Set(tabFiltered.map((j) => j.materialsManager.trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b))
+
+  const showPersonFilters = tab !== 'archive'
+  const personFilterActive = filterPms.length > 0 || filterMms.length > 0
+
+  const toggleProjectManager = (name: string, anchorJobNumber?: string) => {
+    setFilterPms((prev) => {
+      if (isSelected(prev, name)) return prev.filter((s) => norm(s) !== norm(name))
+      return [...prev, name]
+    })
+    if (anchorJobNumber) setScrollToJobNumber(anchorJobNumber)
+  }
+
+  const toggleMaterialsManager = (name: string, anchorJobNumber?: string) => {
+    setFilterMms((prev) => {
+      if (isSelected(prev, name)) return prev.filter((s) => norm(s) !== norm(name))
+      return [...prev, name]
+    })
+    if (anchorJobNumber) setScrollToJobNumber(anchorJobNumber)
+  }
+
+  // Quick filters — match any selected PM and any selected MM (both apply when set)
+  let quickFiltered = tabFiltered
+  if (filterPms.length > 0) {
+    quickFiltered = quickFiltered.filter((j) =>
+      filterPms.some((n) => norm(j.pm) === norm(n)),
+    )
+  }
+  if (filterMms.length > 0) {
+    quickFiltered = quickFiltered.filter((j) =>
+      filterMms.some((n) => norm(j.materialsManager) === norm(n)),
+    )
+  }
+
   if (tab === 'archive' && tabFiltered.length === 0) {
     return (
       <p className="text-slate-500 text-sm mt-6">
@@ -152,17 +336,24 @@ export function JobListView({ tab }: Props) {
     )
   }
 
-  // Step 2: user filter (spare-parts and archive always show all jobs unfiltered)
+  // Role filter — skipped when a Project Manager / Materials Manager quick filter is active
   let filtered: BoardJob[]
-  if (tab === 'spare-parts' || tab === 'archive' || !activeUser || isSuper || showAll || activeUser.role === 'manual') {
-    filtered = tabFiltered
+  if (
+    tab === 'spare-parts' ||
+    tab === 'archive' ||
+    !activeUser ||
+    isSuper ||
+    showAll ||
+    activeUser.role === 'manual' ||
+    personFilterActive
+  ) {
+    filtered = quickFiltered
   } else if (activeUser.role === 'pm') {
-    filtered = tabFiltered.filter((j) => norm(j.pm) === norm(activeUser.name))
+    filtered = quickFiltered.filter((j) => norm(j.pm) === norm(activeUser.name))
   } else if (activeUser.role === 'materials') {
-    filtered = tabFiltered.filter((j) => norm(j.materialsManager) === norm(activeUser.name))
+    filtered = quickFiltered.filter((j) => norm(j.materialsManager) === norm(activeUser.name))
   } else {
-    // super and any future roles see all jobs on the tab
-    filtered = tabFiltered
+    filtered = quickFiltered
   }
 
   // Step 3: committed search filter (job#, customer, pm)
@@ -180,10 +371,80 @@ export function JobListView({ tab }: Props) {
   const canToggle = tab !== 'spare-parts' && tab !== 'archive' && !!activeUser && !isSuper && activeUser.role !== 'manual'
   const spareNotConfigured = tab === 'spare-parts' && !spare
 
+  const filterSummary = (() => {
+    const parts: string[] = []
+    if (filterPms.length === 1) parts.push(`Project Manager: ${filterPms[0]}`)
+    else if (filterPms.length > 1) parts.push(`${filterPms.length} Project Managers`)
+    if (filterMms.length === 1) parts.push(`Materials Manager: ${filterMms[0]}`)
+    else if (filterMms.length > 1) parts.push(`${filterMms.length} Materials Managers`)
+    return parts.length ? ` · ${parts.join(' · ')}` : ''
+  })()
+
   return (
     <div>
-      {/* Sticky search bar */}
+      {/* Sticky header */}
       <div className="sticky top-0 z-20 bg-[#0f1117] pt-6 pb-3 mb-3">
+        {/* Row 1: Project Manager + Materials Manager filters (top, side by side) */}
+        {showPersonFilters && (
+          <div className="mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <PersonMultiSelect
+                label="Project Manager"
+                names={uniquePms}
+                selected={filterPms}
+                onChange={setFilterPms}
+              />
+              <PersonMultiSelect
+                label="Materials Manager"
+                names={uniqueMms}
+                selected={filterMms}
+                onChange={setFilterMms}
+              />
+            </div>
+            {(filterPms.length > 0 || filterMms.length > 0) && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                {filterPms.map((name) => (
+                  <span
+                    key={`pm-${name}`}
+                    className="inline-flex items-center gap-1 max-w-full rounded-full bg-blue-600/25 border border-blue-500/40 px-2.5 py-0.5 text-xs text-slate-200"
+                    title={name}
+                  >
+                    <span className="text-blue-300/90 shrink-0">PM</span>
+                    <span className="truncate">{name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFilterPms((prev) => prev.filter((s) => norm(s) !== norm(name)))}
+                      className="text-slate-400 hover:text-white shrink-0 ml-0.5"
+                      aria-label={`Remove ${name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {filterMms.map((name) => (
+                  <span
+                    key={`mm-${name}`}
+                    className="inline-flex items-center gap-1 max-w-full rounded-full bg-violet-600/20 border border-violet-500/40 px-2.5 py-0.5 text-xs text-slate-200"
+                    title={name}
+                  >
+                    <span className="text-violet-300/90 shrink-0">MM</span>
+                    <span className="truncate">{name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setFilterMms((prev) => prev.filter((s) => norm(s) !== norm(name)))}
+                      className="text-slate-400 hover:text-white shrink-0 ml-0.5"
+                      aria-label={`Remove ${name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Row 2: search */}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -272,9 +533,10 @@ export function JobListView({ tab }: Props) {
             {sorted.length} job{sorted.length !== 1 ? 's' : ''}
             {q
               ? ` matching "${search.trim()}"`
-              : tab === 'archive'
+              : filterSummary
+              || (tab === 'archive'
               ? ' · newest ship date first'
-              : ' · soonest ship date first'}
+              : ' · soonest ship date first')}
           </p>
           {canToggle && (
             <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-0.5">
@@ -309,7 +571,14 @@ export function JobListView({ tab }: Props) {
       ) : (
         <div key={search}>
           {sorted.map((job) => (
-            <JobCard key={job.jobNumber} job={job} activeUser={activeUser} config={config} />
+            <JobCard
+              key={job.jobNumber}
+              job={job}
+              activeUser={activeUser}
+              config={config}
+              onSelectProjectManager={(name) => toggleProjectManager(name, job.jobNumber)}
+              onSelectMaterialsManager={(name) => toggleMaterialsManager(name, job.jobNumber)}
+            />
           ))}
         </div>
       )}

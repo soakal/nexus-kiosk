@@ -225,7 +225,7 @@ Web UI: http://vrsi-git:3000/vrsi-pc-build/nexus-kiosk — migrated from `briank
 - [x] **Token-refresh resilience** — classify transient vs `invalid_grant`, add retry/backoff, and surface a visible "re-auth required" / TEST MODE state in the UI instead of failing silently. — DONE (60s quick retry on transient failure)
 - [x] **Add `/api/*` 404 JSON handler** before the SPA `*` catch-all. — DONE (`server/src/index.ts`)
 - [ ] **URL-encode interpolated Graph IDs** (siteId, driveId, calendarId, search) in `graph/sharepoint.ts` and `graph/events.ts`.
-- [x] **Import orphan/isNew handling** — prune stale board-state entries on re-import; preserve `isNew` until acknowledged. — DONE (prune now preserves notes; isNew logic unchanged)
+- [x] **Import orphan/isNew handling** — prune stale board-state entries on re-import; `NEW` badge only on job numbers new in the latest import (not carried forward). — DONE
 - [ ] **Auto-update.sh** — guard against missing/non-git `INSTALL_DIR` before cd/git; finite git transfer timeouts (`GIT_HTTP_LOW_SPEED_LIMIT/TIME`); defer `rm -rf node_modules` until npm reachability confirmed.
 
 ### Medium

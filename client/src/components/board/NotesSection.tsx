@@ -121,7 +121,7 @@ export default function NotesSection({
                       <button
                         type="button"
                         onClick={() => onDeleteNote(note.id)}
-                        className="text-slate-600 hover:text-red-400 text-xs leading-none"
+                        className="flex items-center justify-center min-w-[44px] min-h-[44px] -mr-2 text-slate-500 hover:text-red-400 text-2xl leading-none rounded-lg hover:bg-slate-800/80 transition-colors"
                         aria-label="Delete note"
                       >
                         &times;

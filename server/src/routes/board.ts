@@ -297,14 +297,23 @@ boardRouter.patch('/jobs/:jobNumber/status', async (req: Request, res: Response)
 // ---------------------------------------------------------------------------
 boardRouter.patch('/jobs/:jobNumber/ship-date', async (req: Request, res: Response) => {
   try {
-    const { shipDateOverride, actor } = req.body as { shipDateOverride?: string | null; actor?: Actor }
+    const { shipDateOverride, shipDateOverrideNote, actor } = req.body as {
+      shipDateOverride?: string | null
+      shipDateOverrideNote?: string | null
+      actor?: Actor
+    }
 
     if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
       res.status(404).json({ error: 'Job not found' })
       return
     }
 
-    await setShipDateOverride(req.params.jobNumber, shipDateOverride ?? null, actor)
+    await setShipDateOverride(
+      req.params.jobNumber,
+      shipDateOverride ?? null,
+      actor,
+      shipDateOverrideNote,
+    )
 
     const job = getMergedJobs().find((j) => j.jobNumber === req.params.jobNumber)
     res.json(job)

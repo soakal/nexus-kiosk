@@ -39,6 +39,26 @@ export function statusIndex(status: JobStatus): number {
 
 const normPm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 
+/** Stable hue from a string — used for customer name bubbles. */
+export function customerBubbleColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const hue = Math.abs(hash) % 360
+  return `hsl(${hue}, 52%, 42%)`
+}
+
+/** Neutral bubble for PM / Materials Manager labels. */
+export function personBubbleColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const hue = (Math.abs(hash) % 60) + 200
+  return `hsl(${hue}, 35%, 38%)`
+}
+
 /**
  * A job is a spare-parts job if its PM matches the configured spare carrier
  * OR its job number starts with 'sp-' or 'sp ' (case-insensitive). Shared by BoardHeader

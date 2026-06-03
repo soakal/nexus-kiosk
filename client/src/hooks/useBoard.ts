@@ -98,8 +98,17 @@ export function useSetJobStatus() {
 export function useSetJobShipDate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobNumber, shipDateOverride, actor }: { jobNumber: string; shipDateOverride: string | null; actor: Actor }) =>
-      setJobShipDate(jobNumber, shipDateOverride, actor),
+    mutationFn: ({
+      jobNumber,
+      shipDateOverride,
+      shipDateOverrideNote,
+      actor,
+    }: {
+      jobNumber: string
+      shipDateOverride: string | null
+      shipDateOverrideNote?: string | null
+      actor: Actor
+    }) => setJobShipDate(jobNumber, shipDateOverride, actor, shipDateOverrideNote),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['board', 'jobs'] });
       qc.invalidateQueries({ queryKey: ['events'] });

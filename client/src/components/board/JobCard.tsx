@@ -4,7 +4,7 @@ import StatusCheckboxes from './StatusCheckboxes'
 import BinderPrintedCheckbox from './BinderPrintedCheckbox'
 import ShipDateEditor from './ShipDateEditor'
 import NotesSection from './NotesSection'
-import { statusLabel } from './boardColors'
+import { statusLabel, isSpareJob, customerBubbleColor } from './boardColors'
 import {
   useSetJobStatus,
   useSetJobShipDate,
@@ -20,6 +20,8 @@ interface Props {
   job: BoardJob
   activeUser: BoardUser | null
   config: BoardConfig
+  onSelectProjectManager?: (name: string) => void
+  onSelectMaterialsManager?: (name: string) => void
 }
 
 function formatShipDate(dateStr: string | null): string {
@@ -28,19 +30,34 @@ function formatShipDate(dateStr: string | null): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export function JobCard({ job, activeUser, config }: Props) {
+function overrideFromPending(pendingDate: string | null, original: string | null): string | null {
+  if (!pendingDate || pendingDate === original) return null
+  return pendingDate
+}
+
+function savedOverride(job: BoardJob): string | null {
+  return job.shipDateOverridden ? job.effectiveShipDate : null
+}
+
+export function JobCard({
+  job,
+  activeUser,
+  config,
+  onSelectProjectManager,
+  onSelectMaterialsManager,
+}: Props) {
   const [notesOpen, setNotesOpen] = useState(job.notes.length > 0)
 
-  // Pending local state for deferred save
   const [pendingStatus, setPendingStatus] = useState<JobStatus>(job.status)
   const [pendingBinderPrinted, setPendingBinderPrinted] = useState<boolean>(job.binderPrinted)
   const [pendingShipDate, setPendingShipDate] = useState<string | null>(job.effectiveShipDate)
+  const [pendingOverrideNote, setPendingOverrideNote] = useState<string>(job.shipDateOverrideNote ?? '')
 
-  // Re-sync when saved values change (after successful Apply + refetch)
   useEffect(() => { setNotesOpen(job.notes.length > 0) }, [job.notes.length])
   useEffect(() => { setPendingStatus(job.status) }, [job.status])
   useEffect(() => { setPendingBinderPrinted(job.binderPrinted) }, [job.binderPrinted])
   useEffect(() => { setPendingShipDate(job.effectiveShipDate) }, [job.effectiveShipDate])
+  useEffect(() => { setPendingOverrideNote(job.shipDateOverrideNote ?? '') }, [job.shipDateOverrideNote])
 
   const setJobStatus = useSetJobStatus()
   const setJobShipDate = useSetJobShipDate()
@@ -50,14 +67,21 @@ export function JobCard({ job, activeUser, config }: Props) {
   const deleteJobNote = useDeleteJobNote()
   const [noteActionError, setNoteActionError] = useState<string | null>(null)
 
+  const spareJob = isSpareJob(job, config)
+  const pendingOverride = overrideFromPending(pendingShipDate, job.originalShipDate)
+  const currentOverride = savedOverride(job)
+
   const statusDirty = pendingStatus !== job.status
-  const binderDirty = pendingBinderPrinted !== job.binderPrinted
-  const dateDirty = pendingShipDate !== job.effectiveShipDate
-  const isDirty = statusDirty || binderDirty || dateDirty
+  const binderDirty = !spareJob && pendingBinderPrinted !== job.binderPrinted
+  const dateDirty = pendingOverride !== currentOverride
+  const noteDirty = (pendingOverrideNote.trim() || null) !== (job.shipDateOverrideNote?.trim() || null)
+  const isDirty = statusDirty || binderDirty || dateDirty || noteDirty
   const isSaving =
     setJobStatus.isPending || setJobShipDate.isPending || setJobBinderPrinted.isPending
 
-  // Presence: broadcast when dirty, show warning when someone else is editing
+  const pendingDateOverridden =
+    pendingOverride !== null || (dateDirty && pendingShipDate !== job.originalShipDate)
+
   const presenceMap = usePresence()
   const userId = activeUser?.id
   const userName = activeUser?.name
@@ -85,10 +109,14 @@ export function JobCard({ job, activeUser, config }: Props) {
         actor: activeUser,
       })
     }
-    if (dateDirty) {
-      setJobShipDate.mutate({ jobNumber: job.jobNumber, shipDateOverride: pendingShipDate, actor: activeUser })
+    if (dateDirty || noteDirty) {
+      setJobShipDate.mutate({
+        jobNumber: job.jobNumber,
+        shipDateOverride: pendingOverride,
+        shipDateOverrideNote: pendingOverride ? (pendingOverrideNote.trim() || null) : null,
+        actor: activeUser,
+      })
     }
-    // Clear presence immediately rather than waiting for the next effect-cleanup tick
     if (userId) releasePresence(job.jobNumber, userId)
   }
 
@@ -96,7 +124,7 @@ export function JobCard({ job, activeUser, config }: Props) {
     setPendingStatus(job.status)
     setPendingBinderPrinted(job.binderPrinted)
     setPendingShipDate(job.effectiveShipDate)
-    // Clear presence immediately so the lock releases the moment the user cancels
+    setPendingOverrideNote(job.shipDateOverrideNote ?? '')
     if (userId) releasePresence(job.jobNumber, userId)
   }
 
@@ -128,44 +156,87 @@ export function JobCard({ job, activeUser, config }: Props) {
   }
 
   const statusColor = config.statusColors[pendingStatus]
+  const customerColor = customerBubbleColor(job.customer || job.jobNumber)
 
   return (
     <div
-      className="rounded-xl border border-slate-700/50 p-4 mb-3 border-l-4"
+      id={`job-card-${job.jobNumber}`}
+      className="rounded-xl border border-slate-700/50 p-4 mb-3 border-l-4 scroll-mt-24"
       style={{ borderLeftColor: statusColor, backgroundColor: `${statusColor}18` }}
     >
-      {/* Header row */}
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-100 text-lg font-bold">{job.jobNumber}</span>
-            {job.isNew && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-red-500/20 text-red-400 border border-red-500/30">
-                New
-              </span>
-            )}
-          </div>
-          <div className="text-slate-400 text-sm mt-0.5">
-            {job.customer} &middot; PM: {job.pm}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 text-slate-300 text-sm text-right">
-          <span>{formatShipDate(pendingShipDate)}</span>
-          {(job.shipDateOverridden || dateDirty) && (
-            <span className="text-amber-400 ml-1" title="Ship date overridden">&#9888;</span>
+      {/* Line 1: job number + customer bubble | original ship date */}
+      <div className="flex justify-between items-start gap-3">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <span className="text-slate-100 text-lg font-bold shrink-0">{job.jobNumber}</span>
+          {job.isNew && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-red-500/20 text-red-400 border border-red-500/30 shrink-0">
+              New
+            </span>
           )}
+          {job.customer.trim() && (
+            <span
+              className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium text-white truncate max-w-[200px] sm:max-w-xs"
+              style={{ backgroundColor: customerColor }}
+              title={job.customer}
+            >
+              {job.customer}
+            </span>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-slate-500 text-[10px] uppercase tracking-wide">Original</div>
+          <div className="text-slate-300 text-sm">{formatShipDate(job.originalShipDate)}</div>
         </div>
       </div>
 
-      {/* Status row */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-        <span className="text-slate-500 text-xs w-full sm:w-auto">MM: {job.materialsManager}</span>
-        <BinderPrintedCheckbox
-          jobNumber={job.jobNumber}
-          checked={pendingBinderPrinted}
-          disabled={!activeUser}
-          onChange={setPendingBinderPrinted}
-        />
+      {/* Line 2: Materials Manager + Project Manager (compact, side by side) */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        {job.materialsManager.trim() && (
+          <span className="text-slate-500">
+            Materials Manager:{' '}
+            {onSelectMaterialsManager ? (
+              <button
+                type="button"
+                onClick={() => onSelectMaterialsManager(job.materialsManager)}
+                className="text-slate-300 hover:text-white hover:underline"
+                title="Add to Materials Manager filter"
+              >
+                {job.materialsManager}
+              </button>
+            ) : (
+              <span className="text-slate-300">{job.materialsManager}</span>
+            )}
+          </span>
+        )}
+        {job.pm.trim() && (
+          <span className="text-slate-500">
+            Project Manager:{' '}
+            {onSelectProjectManager ? (
+              <button
+                type="button"
+                onClick={() => onSelectProjectManager(job.pm)}
+                className="text-slate-300 hover:text-white hover:underline"
+                title="Add to Project Manager filter"
+              >
+                {job.pm}
+              </button>
+            ) : (
+              <span className="text-slate-300">{job.pm}</span>
+            )}
+          </span>
+        )}
+      </div>
+
+      {/* Line 3: binder (project only) + status checkboxes */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+        {!spareJob && (
+          <BinderPrintedCheckbox
+            jobNumber={job.jobNumber}
+            checked={pendingBinderPrinted}
+            disabled={!activeUser}
+            onChange={setPendingBinderPrinted}
+          />
+        )}
         <StatusCheckboxes
           jobNumber={job.jobNumber}
           status={pendingStatus}
@@ -185,20 +256,24 @@ export function JobCard({ job, activeUser, config }: Props) {
         </span>
       </div>
 
-      {/* Ship date row */}
-      <div className="mt-2">
+      {/* Line 4: ship date editor (modified) */}
+      <div className="mt-3">
         <ShipDateEditor
           jobNumber={job.jobNumber}
+          originalShipDate={job.originalShipDate}
           effectiveShipDate={pendingShipDate}
-          shipDateOverridden={job.shipDateOverridden || dateDirty}
+          shipDateOverridden={job.shipDateOverridden || pendingDateOverridden}
+          overrideNote={pendingOverrideNote}
           disabled={!activeUser}
           onDateChange={setPendingShipDate}
+          onNoteChange={setPendingOverrideNote}
         />
       </div>
 
-      {/* Notes toggle */}
+      {/* Line 5: notes */}
       <div className="mt-3 flex items-center gap-2">
         <button
+          type="button"
           onClick={() => setNotesOpen((o) => !o)}
           className="text-slate-400 hover:text-slate-200 text-sm transition-colors"
         >
@@ -209,7 +284,6 @@ export function JobCard({ job, activeUser, config }: Props) {
         )}
       </div>
 
-      {/* Notes section */}
       {notesOpen && (
         <div className="mt-3">
           <NotesSection
@@ -226,17 +300,16 @@ export function JobCard({ job, activeUser, config }: Props) {
         </div>
       )}
 
-      {/* Other-user editing warning */}
       {otherEditors.length > 0 && (
         <div className="mt-2 px-2 py-1.5 bg-amber-900/30 border border-amber-700/40 rounded-lg text-amber-400 text-xs">
           {otherEditors.map(e => e.userName).join(' & ')} {otherEditors.length === 1 ? 'is' : 'are'} editing this job
         </div>
       )}
 
-      {/* Apply / Cancel — only shown when there are unsaved changes */}
       {isDirty && (
         <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-700/50 pt-3">
           <button
+            type="button"
             onClick={handleCancel}
             disabled={isSaving}
             className="px-3 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
@@ -244,6 +317,7 @@ export function JobCard({ job, activeUser, config }: Props) {
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleApply}
             disabled={isSaving || !activeUser}
             className="px-4 py-1 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"

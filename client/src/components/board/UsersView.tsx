@@ -156,10 +156,16 @@ export default function UsersView() {
         </div>
       </div>
 
-      {/* ── Section 2: Extra Users ───────────────────────────────────────────── */}
-      <div className="py-4 px-1">
-        <h3 className="text-slate-300 font-semibold text-sm mb-1">Extra Users</h3>
-        <p className="text-slate-500 text-xs mb-3">Add people not in the imported spreadsheet.</p>
+      {/* ── Section 2: Extra Users (advanced) ─────────────────────────────────── */}
+      <details className="py-4 px-1 group">
+        <summary className="text-slate-400 text-sm cursor-pointer list-none flex items-center gap-2 select-none">
+          <span className="text-slate-500 group-open:rotate-90 transition-transform inline-block">▸</span>
+          Advanced: Extra Users
+        </summary>
+        <p className="text-slate-500 text-xs mt-3 mb-3">
+          User names normally come from PM and Materials Manager columns in the imported spreadsheet.
+          Only add manual names here if someone is missing from the schedule file.
+        </p>
 
         <div className="flex gap-2 mb-3">
           <input
@@ -195,7 +201,7 @@ export default function UsersView() {
             ))}
           </ul>
         )}
-      </div>
+      </details>
 
       {/* ── Section 3: Super User ───────────────────────────────────────────── */}
       <div className="py-4 px-1">

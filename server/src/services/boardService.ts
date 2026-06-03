@@ -346,18 +346,10 @@ export async function saveJobsFile(jobs: Job[], sourceFile: string): Promise<voi
 
   const currentNumbers = new Set(jobs.map((j) => j.jobNumber))
 
-  // isNew must survive re-imports. A job flagged new in a prior import that is
-  // still present (and never acknowledged) must STAY new — recomputing "not in
-  // the previous file" alone would wrongly clear the badge on the next import.
-  // So: union (jobs not seen in the previous import) with (prior newJobNumbers
-  // that are still present in this import).
-  const carriedOver = (existing?.newJobNumbers ?? []).filter((n) =>
-    currentNumbers.has(n)
-  )
-  const freshlyNew = jobs
+  // NEW badge: only jobs that were not in the previous import file.
+  const newJobNumbers = jobs
     .map((j) => j.jobNumber)
     .filter((n) => !existingNumbers.has(n))
-  const newJobNumbers = Array.from(new Set([...carriedOver, ...freshlyNew]))
 
   const data: JobsFile = {
     jobs,
@@ -538,6 +530,7 @@ export function mergeImportedOpsScheduleNotes(importedNotes: Record<string, stri
       const existing = state[jobNumber] ?? {
         status: 'none' as JobStatus,
         shipDateOverride: null,
+        shipDateOverrideNote: null,
         binderPrinted: false,
         notes: [],
         updatedAt: '',
@@ -595,7 +588,11 @@ export async function applyBoardImport(
     else if (status === 'in_progress') inProgressApplied++
   }
   let binderPrintedApplied = 0
+  const config = getBoardConfig()
+  const jobByNumber = new Map(jobs.map((j) => [j.jobNumber, j]))
   for (const [jobNumber, printed] of Object.entries(importedBinderPrinted)) {
+    const job = jobByNumber.get(jobNumber)
+    if (job && isSpareJob(job, config)) continue
     await setJobBinderPrinted(jobNumber, printed)
     if (printed) binderPrintedApplied++
   }
@@ -610,6 +607,7 @@ export async function applyBoardImport(
 type JobStateEntry = {
   status: JobStatus
   shipDateOverride: string | null
+  shipDateOverrideNote: string | null
   binderPrinted: boolean
   notes: JobNote[]
   updatedAt: string
@@ -635,6 +633,7 @@ export function getJobState(jobNumber: string): JobStateEntry {
     state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      shipDateOverrideNote: null,
       binderPrinted: false,
       notes: [],
       updatedAt: '',
@@ -652,6 +651,7 @@ export function setJobBinderPrinted(
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      shipDateOverrideNote: null,
       binderPrinted: false,
       notes: [],
       updatedAt: '',
@@ -672,6 +672,7 @@ export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      shipDateOverrideNote: null,
       binderPrinted: false,
       notes: [],
       updatedAt: '',
@@ -686,12 +687,18 @@ export function setJobStatus(jobNumber: string, status: JobStatus, actor?: Actor
   })
 }
 
-export function setShipDateOverride(jobNumber: string, date: string | null, actor?: Actor): Promise<void> {
+export function setShipDateOverride(
+  jobNumber: string,
+  date: string | null,
+  actor?: Actor,
+  note?: string | null,
+): Promise<void> {
   return runExclusive(() => {
     const state = getBoardStateFile()
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      shipDateOverrideNote: null,
       binderPrinted: false,
       notes: [],
       updatedAt: '',
@@ -699,6 +706,12 @@ export function setShipDateOverride(jobNumber: string, date: string | null, acto
     state[jobNumber] = {
       ...existing,
       shipDateOverride: date,
+      shipDateOverrideNote:
+        date === null
+          ? null
+          : note !== undefined
+            ? (note ?? '').trim() || null
+            : (existing.shipDateOverrideNote ?? null),
       updatedAt: new Date().toISOString(),
       updatedBy: actor?.name,
     }
@@ -712,6 +725,7 @@ export function addNote(jobNumber: string, text: string, actor: Actor): Promise<
     const existing = state[jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      shipDateOverrideNote: null,
       binderPrinted: false,
       notes: [],
       updatedAt: '',
@@ -834,12 +848,14 @@ export function getMergedJobs(): BoardJob[] {
   if (!jobsFile) return []
 
   const state = getBoardStateFile()
+  const config = getBoardConfig()
   const newSet = new Set(jobsFile.newJobNumbers ?? [])
 
   return jobsFile.jobs.map((job): BoardJob => {
     const jobState = state[job.jobNumber] ?? {
       status: 'none' as JobStatus,
       shipDateOverride: null,
+      shipDateOverrideNote: null,
       binderPrinted: false,
       notes: [],
       updatedAt: '',
@@ -847,14 +863,17 @@ export function getMergedJobs(): BoardJob[] {
 
     const effectiveShipDate = jobState.shipDateOverride ?? job.shipToCustomer ?? null
     const shipDateOverridden = jobState.shipDateOverride !== null
+    const spare = isSpareJob(job, config)
 
     return {
       ...job,
       status: jobState.status,
-      binderPrinted: jobState.binderPrinted ?? false,
+      binderPrinted: spare ? false : (jobState.binderPrinted ?? false),
       notes: jobState.notes,
       effectiveShipDate,
+      originalShipDate: job.shipToCustomer ?? null,
       shipDateOverridden,
+      shipDateOverrideNote: jobState.shipDateOverrideNote ?? null,
       isNew: newSet.has(job.jobNumber),
     }
   })

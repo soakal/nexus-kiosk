@@ -97,6 +97,11 @@ function formatLocalDate(d: Date): string {
 
 function parseDateValue(value: unknown): string | null {
   if (value == null) return null
+  // xlsx with cellDates:true + raw:true returns JS Date objects for date cells
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) return null
+    return formatLocalDate(value)
+  }
   if (typeof value === 'string') {
     const trimmed = value.trim()
     if (!trimmed) return null
@@ -293,7 +298,10 @@ export function parseXlsm(
     ? 'Active Projects'
     : workbook.SheetNames[0]
   const sheet = workbook.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][]
+  // raw: true so date cells come as JS Date objects (cellDates:true above).
+  // raw: false formatted strings via Excel's cell format, which often uses
+  // 2-digit years ("m/d/yy") that parseDateValue would reject as ambiguous.
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) as unknown[][]
 
   if (rows.length < 2) {
     return { jobs: [], warnings: ['Spreadsheet is empty'], rowErrors: [], skipped: 0, importedStatuses: {} }

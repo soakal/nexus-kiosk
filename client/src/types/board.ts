@@ -11,12 +11,16 @@ export interface Job {
   shipToCustomer: string | null
 }
 
+export const OPS_SCHEDULE_NOTE_AUTHOR_ID = 'system:ops-schedule'
+export const OPS_SCHEDULE_NOTE_AUTHOR_NAME = 'Ops Schedule'
+
 export interface JobNote {
   id: string
   authorId: string
   authorName: string
   text: string
   createdAt: string
+  updatedAt?: string
 }
 
 export interface BoardJob extends Job {

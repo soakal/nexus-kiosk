@@ -42,6 +42,11 @@ interface CalendarViewProps {
   onSelectEvent?: (event: CalendarEvent) => void;
 }
 
+function isWeekend(d: Date): boolean {
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
 function hexToRgba(hex: string, alpha: number): string {
   const cleaned = hex.replace('#', '');
   const r = parseInt(cleaned.substring(0, 2), 16);
@@ -89,8 +94,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         resource: ev,
       });
     }
+    // Week (no weekends): drop Sat/Sun-start events so all-day row stays stable.
+    // Month keeps all events — 7-day grid + clip hides weekend columns.
+    if (!showWeekends && displayMode === 'week') {
+      return mapped.filter((ev) => ev.start instanceof Date && !isWeekend(ev.start));
+    }
     return mapped;
-  }, [events]);
+  }, [events, showWeekends, displayMode]);
 
   const minTime = useMemo(() => {
     const d = new Date();
@@ -121,30 +131,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   };
 
-  // In month view, dim (not hide) Sat/Sun so event positioning stays correct.
-  // In week view we use work_week which natively excludes weekends — no CSS needed.
-  const dayPropGetter = useMemo(
-    () => (date: Date) => {
-      if (!showWeekends && (displayMode === 'month' || displayMode === 'week')) {
-        const day = date.getDay();
-        if (day === 0 || day === 6) {
-          return { className: 'rbc-weekend-dim' };
-        }
-      }
-      return {};
-    },
-    [showWeekends, displayMode]
-  );
+  const dayPropGetter = useMemo(() => () => ({}), []);
 
-  // Always use full 'week' (7 columns). Do NOT use work_week when weekends are
-  // hidden — all-day events on Sat/Sun (e.g. board ship dates) crash RBC with
-  // "Cannot read properties of undefined (reading 'title')".
+  // Always use native week (7 columns). work_week crashes when events land on
+  // Sat/Sun; Mon-start week + CSS clip gives a stable Mon–Fri layout instead.
   const rbcView: 'day' | 'week' | 'month' =
     displayMode === 'day' ? 'day' : displayMode === 'month' ? 'month' : 'week';
 
   const localizer = showWeekends ? localizerSun : localizerMon;
 
-  // Dim weekend columns in month + week; keep all 7 columns for correct layout.
   const weekendsHidden = !showWeekends && (displayMode === 'month' || displayMode === 'week');
 
   return (
@@ -268,28 +263,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         .nexus-calendar-wrapper .rbc-header + .rbc-header {
           border-color: rgba(255,255,255,0.08);
         }
-        /* Month view: dim (not hide) weekend background cells.
-           Hiding would shift multi-day event left/width calculations
-           because RBC computes positions based on 7 columns. */
-        .nexus-calendar-wrapper .rbc-day-bg.rbc-weekend-dim {
-          background: rgba(0,0,0,0.35) !important;
+        /*
+         * Weekends off: keep RBC's 7-day grid (event % positions stay correct).
+         * Mon-start week + 140% width + clip right 2/7 hides Sat/Sun columns.
+         */
+        .weekends-hidden .rbc-calendar {
+          overflow: hidden;
         }
-        /* Also dim the date number in weekend cells — only when weekends are
-           hidden (month view). The Mon-start localizer used in that mode puts
-           Saturday in column 6 and Sunday in column 7. The background dim is
-           gated the same way via dayPropGetter's rbc-weekend-dim. */
-        .weekends-hidden .rbc-month-row .rbc-date-cell:nth-child(6),
-        .weekends-hidden .rbc-month-row .rbc-date-cell:nth-child(7) {
-          opacity: 0.35;
-        }
-        /* Week/day time views: dim Sat/Sun (Mon-start localizer → cols 6–7). */
-        .weekends-hidden .rbc-time-view .rbc-header:nth-child(6),
-        .weekends-hidden .rbc-time-view .rbc-header:nth-child(7),
-        .weekends-hidden .rbc-time-view .rbc-day-bg:nth-child(6),
-        .weekends-hidden .rbc-time-view .rbc-day-bg:nth-child(7),
-        .weekends-hidden .rbc-time-view .rbc-time-column:nth-child(6),
-        .weekends-hidden .rbc-time-view .rbc-time-column:nth-child(7) {
-          opacity: 0.35;
+        .weekends-hidden .rbc-month-view,
+        .weekends-hidden .rbc-time-view {
+          width: 140% !important;
+          max-width: 140% !important;
+          clip-path: inset(0 28.5714285714% 0 0);
+          -webkit-clip-path: inset(0 28.5714285714% 0 0);
         }
       `}</style>
       <Calendar

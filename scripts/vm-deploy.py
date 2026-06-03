@@ -11,20 +11,37 @@ HOST = os.environ.get("VM_HOST", "10.10.11.24")
 USER = os.environ.get("VM_USER", "vrsi")
 PASSWORD = os.environ.get("VM_PASSWORD", "")
 INSTALL = "/home/vrsi/nexus-kiosk"
+XLSM = os.environ.get(
+    "VM_XLSM",
+    "/home/vrsi/.cache/vmware/drag_and_drop/DePM5V/Copy of Operations Schedule - Saved on - Active.xlsm",
+)
 
 FILES = [
+    "client/src/components/board/boardColors.ts",
+    "client/src/components/board/BoardLayout.tsx",
+    "client/src/components/board/BoardHeader.tsx",
+    "client/src/components/board/JobListView.tsx",
+    "client/src/hooks/useBoard.ts",
     "client/src/components/CalendarView.tsx",
     "client/src/App.tsx",
     "client/src/components/Dashboard.tsx",
+    "client/src/components/AgendaRail.tsx",
     "client/src/components/StalenessIndicator.tsx",
     "client/src/components/board/ImportView.tsx",
+    "client/src/components/board/NotesSection.tsx",
+    "client/src/components/board/JobCard.tsx",
+    "client/src/types/board.ts",
+    "client/src/api/boardApi.ts",
+    "server/src/types/board.ts",
     "client/src/hooks/useAuth.ts",
     "client/src/hooks/useEvents.ts",
     "client/src/types/index.ts",
     "deploy/dashboard-backend.service",
     "server/src/routes/auth.ts",
     "server/src/routes/board.ts",
+    "server/src/routes/events.ts",
     "server/src/services/boardService.ts",
+    "client/src/types/index.ts",
 ]
 
 
@@ -86,6 +103,8 @@ def main() -> int:
         "curl -sf http://localhost:3001/health | python3 -m json.tool",
         "systemctl is-active dashboard-backend",
         f"echo '{pw}' | sudo -S systemctl restart dashboard-kiosk 2>&1 || true",
+        # Full import: jobs + status checkmarks + NOTE column → board-state
+        f'test -f "{XLSM}" && curl -sf -F "file=@{XLSM}" http://localhost:3001/api/board/import | python3 -m json.tool || echo "SKIP_IMPORT: xlsm not found"',
     ]
 
     for cmd in steps:
@@ -97,7 +116,7 @@ def main() -> int:
             print("stderr:", err.strip()[-800:])
 
     client.close()
-    print("\nDeploy finished. Open http://10.10.11.24:3001 and hard-refresh (Ctrl+Shift+R).")
+    print(f"\nDeploy finished. Open http://{HOST}:3001 and hard-refresh (Ctrl+Shift+R).")
     return 0
 
 

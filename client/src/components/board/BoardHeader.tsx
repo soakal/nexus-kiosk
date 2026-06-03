@@ -1,7 +1,7 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useBoardJobs, useBoardConfig, useBoardUsers } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
-import { tabColor, isSpareJob } from './boardColors'
+import { tabColor, filterJobsForTab } from './boardColors'
 
 export function BoardHeader() {
   const { jobs } = useBoardJobs()
@@ -9,9 +9,9 @@ export function BoardHeader() {
   const { users } = useBoardUsers()
   const { activeUser, setActiveUser } = useAppStore()
 
-  const projectJobs = jobs.filter((j) => !isSpareJob(j, config) && j.status !== 'shipped')
-  const spareJobs = jobs.filter((j) => isSpareJob(j, config) && j.status !== 'shipped')
-  const archiveJobs = jobs.filter((j) => j.status === 'shipped')
+  const projectJobs = filterJobsForTab(jobs, 'project', config)
+  const spareJobs = filterJobsForTab(jobs, 'spare-parts', config)
+  const archiveJobs = filterJobsForTab(jobs, 'archive', config)
 
   const projectColor = tabColor(projectJobs, config)
   const spareColor = tabColor(spareJobs, config)
@@ -74,7 +74,7 @@ export function BoardHeader() {
             isActive ? { borderBottom: `2px solid ${projectColor}`, backgroundColor: projectColor + '18' } : {}
           }
         >
-          Project
+          Project{projectJobs.length > 0 ? ` (${projectJobs.length})` : ''}
         </NavLink>
 
         <NavLink
@@ -88,7 +88,7 @@ export function BoardHeader() {
             isActive ? { borderBottom: `2px solid ${spareColor}`, backgroundColor: spareColor + '18' } : {}
           }
         >
-          Spare Parts
+          Spare Parts{spareJobs.length > 0 ? ` (${spareJobs.length})` : ''}
         </NavLink>
 
         <NavLink

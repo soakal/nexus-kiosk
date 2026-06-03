@@ -9,6 +9,7 @@ import {
   setJobStatus,
   setJobShipDate,
   addJobNote,
+  updateJobNote,
   deleteJobNote,
   getPresence,
   type PresenceMap,
@@ -19,7 +20,8 @@ export function useBoardJobs() {
   const q = useQuery({
     queryKey: ['board', 'jobs'],
     queryFn: getBoardJobs,
-    staleTime: 30000,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
   });
 
   return {
@@ -74,8 +76,8 @@ export function useImportJobs() {
       return importJobsJson(arg);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['board', 'jobs'] });
-      qc.invalidateQueries({ queryKey: ['board', 'users'] });
+      qc.invalidateQueries({ queryKey: ['board'] });
+      qc.invalidateQueries({ queryKey: ['events'] });
     },
   });
 }
@@ -126,14 +128,29 @@ export function usePresence(): PresenceMap {
   return q.data ?? {};
 }
 
+export function useUpdateJobNote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      jobNumber,
+      noteId,
+      text,
+      actor,
+    }: {
+      jobNumber: string
+      noteId: string
+      text: string
+      actor: Actor
+    }) => updateJobNote(jobNumber, noteId, text, actor),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
+  });
+}
+
 export function useDeleteJobNote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ jobNumber, noteId, actor }: { jobNumber: string; noteId: string; actor: Actor }) =>
       deleteJobNote(jobNumber, noteId, actor),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'jobs'] }),
-    onError: () => {
-      console.error('Failed to save note — server may be unavailable')
-    },
   });
 }

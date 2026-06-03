@@ -19,6 +19,8 @@ export default function ImportView() {
   const importResult = importJobs.data as {
     imported: number
     shippedApplied: number
+    readyToShipApplied?: number
+    notesImported?: number
     skipped: number
     warnings: string[]
     rowErrors: string[]
@@ -33,10 +35,18 @@ export default function ImportView() {
         This replaces all current jobs.
       </p>
       <p className="text-slate-600 text-xs mb-6 leading-relaxed">
-        <span className="text-slate-500 font-medium">Status column:</span> only rows marked{' '}
-        <span className="text-slate-400">Shipped</span> are moved to Archive on import.
-        Other spreadsheet statuses (Ready to Ship, On Hold, Build, etc.) are ignored — set
-        workflow status on each job card after import.
+        <span className="text-slate-500 font-medium">Status column:</span>{' '}
+        <span className="text-slate-400">Cancelled</span> rows are not imported.{' '}
+        <span className="text-slate-400">Shipped</span> → Archive;{' '}
+        <span className="text-slate-400">Ready to Ship</span> /{' '}
+        <span className="text-slate-400">Partially Shipped</span> → ready checkmarks;{' '}
+        <span className="text-slate-400">Build</span> /{' '}
+        <span className="text-slate-400">Parts on order</span> → in progress.{' '}
+        <span className="text-slate-400">NOTE</span> column → Ops Schedule notes. On Hold is
+        unchanged. Spreadsheet{' '}
+        <span className="text-slate-400">Notes</span> are
+        added per job as <span className="text-slate-400">Ops Schedule</span> (your notes are
+        never removed).
       </p>
 
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-4">
@@ -78,7 +88,18 @@ export default function ImportView() {
                 )}
                 {importResult.shippedApplied > 0 && (
                   <span className="ml-2 text-slate-400">
-                    ({importResult.shippedApplied} archived as shipped)
+                    ({importResult.shippedApplied} shipped)
+                  </span>
+                )}
+                {(importResult.readyToShipApplied ?? 0) > 0 && (
+                  <span className="ml-2 text-slate-400">
+                    ({importResult.readyToShipApplied} ready to ship)
+                  </span>
+                )}
+                {(importResult.notesImported ?? 0) > 0 && (
+                  <span className="ml-2 text-slate-400">
+                    ({importResult.notesImported} ops schedule note
+                    {importResult.notesImported !== 1 ? 's' : ''})
                   </span>
                 )}
               </p>

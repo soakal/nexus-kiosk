@@ -48,3 +48,44 @@ export function isSpareJob(job: BoardJob, config: BoardConfig): boolean {
   const spare = normPm(config.spareCarrier)
   return normPm(job.pm) === spare || job.jobNumber.toLowerCase().startsWith('sp')
 }
+
+export type BoardTab = 'project' | 'spare-parts' | 'archive'
+
+export function boardRouteForTab(tab: BoardTab): string {
+  if (tab === 'spare-parts') return '/board/spare-parts'
+  if (tab === 'archive') return '/board/archive'
+  return '/board'
+}
+
+/** Same rules as JobListView — keeps header counts and lists in sync. */
+export function filterJobsForTab(
+  jobs: BoardJob[],
+  tab: BoardTab,
+  config: BoardConfig
+): BoardJob[] {
+  if (tab === 'archive') return jobs.filter((j) => j.status === 'shipped')
+  if (tab === 'spare-parts') {
+    return jobs.filter((j) => isSpareJob(j, config) && j.status !== 'shipped')
+  }
+  return jobs.filter((j) => !isSpareJob(j, config) && j.status !== 'shipped')
+}
+
+/**
+ * Project & Spare Parts: soonest ship date first (nulls last).
+ * Archive: latest ship date first (nulls last).
+ */
+export function sortBoardJobsByShipDate(jobs: BoardJob[], tab: BoardTab): BoardJob[] {
+  const ascending = tab !== 'archive'
+  return [...jobs].sort((a, b) => {
+    const da = a.effectiveShipDate
+    const db = b.effectiveShipDate
+    if (!da && !db) {
+      return a.jobNumber.localeCompare(b.jobNumber, undefined, { numeric: true })
+    }
+    if (!da) return 1
+    if (!db) return -1
+    const cmp = da.localeCompare(db)
+    if (cmp !== 0) return ascending ? cmp : -cmp
+    return a.jobNumber.localeCompare(b.jobNumber, undefined, { numeric: true })
+  })
+}

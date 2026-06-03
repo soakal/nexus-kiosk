@@ -4,7 +4,12 @@ import { listCalendars, GraphCalendar } from '../graph/calendars.js';
 import { isAuthenticated } from '../auth/tokenRefresher.js';
 import { getConfig } from '../services/configService.js';
 import { logger } from '../utils/logger.js';
-import { getMergedJobs, getBoardConfig } from '../services/boardService.js';
+import {
+  getMergedJobs,
+  getBoardConfig,
+  getJobBoardTab,
+  formatJobPmLabel,
+} from '../services/boardService.js';
 
 export const eventsRouter = Router();
 
@@ -24,6 +29,8 @@ export interface NormalizedEvent {
   calendarId: string;
   calendarName: string;
   calendarColor: string;
+  /** Present for ship-date events from the project board */
+  boardTab?: 'project' | 'spare-parts' | 'archive';
 }
 
 eventsRouter.get(
@@ -103,16 +110,21 @@ eventsRouter.get(
           if (job.status === 'shipped') continue;
           if (job.effectiveShipDate < rangeStart || job.effectiveShipDate > rangeEnd) continue;
           const customer = job.customer ?? '';
+          const pmLabel = formatJobPmLabel(job.pm ?? '');
+          const boardTab = getJobBoardTab(job, boardConfig);
           normalized.push({
             id: `board-ship-${job.jobNumber}`,
-            subject: `#${job.jobNumber} · ${customer}`,
+            subject: `#${job.jobNumber} · ${pmLabel}`,
             startDateTime: `${job.effectiveShipDate}T00:00:00`,
             endDateTime: `${job.effectiveShipDate}T23:59:59`,
             isAllDay: true,
-            bodyPreview: `${customer} · ${statusLabels[job.status] ?? job.status}`,
+            bodyPreview: customer
+              ? `${customer} · ${statusLabels[job.status] ?? job.status}`
+              : (statusLabels[job.status] ?? job.status),
             calendarId: 'board-jobs',
             calendarName: 'Ship Dates',
             calendarColor: statusColors[job.status] ?? '#475569',
+            boardTab,
           });
         }
       } catch {

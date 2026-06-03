@@ -8,6 +8,7 @@ import {
   useSetJobStatus,
   useSetJobShipDate,
   useAddJobNote,
+  useUpdateJobNote,
   useDeleteJobNote,
   usePresence,
 } from '../../hooks/useBoard'
@@ -40,7 +41,9 @@ export function JobCard({ job, activeUser, config }: Props) {
   const setJobStatus = useSetJobStatus()
   const setJobShipDate = useSetJobShipDate()
   const addJobNote = useAddJobNote()
+  const updateJobNote = useUpdateJobNote()
   const deleteJobNote = useDeleteJobNote()
+  const [noteActionError, setNoteActionError] = useState<string | null>(null)
 
   const statusDirty = pendingStatus !== job.status
   const dateDirty = pendingShipDate !== job.effectiveShipDate
@@ -84,12 +87,29 @@ export function JobCard({ job, activeUser, config }: Props) {
 
   const handleAddNote = (text: string) => {
     if (!activeUser) return
-    addJobNote.mutate({ jobNumber: job.jobNumber, text, actor: activeUser })
+    setNoteActionError(null)
+    addJobNote.mutate(
+      { jobNumber: job.jobNumber, text, actor: activeUser },
+      { onError: (e) => setNoteActionError(e.message) },
+    )
+  }
+
+  const handleEditNote = (noteId: string, text: string) => {
+    if (!activeUser) return
+    setNoteActionError(null)
+    updateJobNote.mutate(
+      { jobNumber: job.jobNumber, noteId, text, actor: activeUser },
+      { onError: (e) => setNoteActionError(e.message) },
+    )
   }
 
   const handleDeleteNote = (noteId: string) => {
     if (!activeUser) return
-    deleteJobNote.mutate({ jobNumber: job.jobNumber, noteId, actor: activeUser })
+    setNoteActionError(null)
+    deleteJobNote.mutate(
+      { jobNumber: job.jobNumber, noteId, actor: activeUser },
+      { onError: (e) => setNoteActionError(e.message) },
+    )
   }
 
   const statusColor = config.statusColors[pendingStatus]
@@ -175,8 +195,12 @@ export function JobCard({ job, activeUser, config }: Props) {
             notes={job.notes}
             activeUser={activeUser}
             onAddNote={handleAddNote}
+            onEditNote={handleEditNote}
             onDeleteNote={handleDeleteNote}
-            isSubmitting={addJobNote.isPending}
+            isSubmitting={
+              addJobNote.isPending || updateJobNote.isPending || deleteJobNote.isPending
+            }
+            actionError={noteActionError}
           />
         </div>
       )}

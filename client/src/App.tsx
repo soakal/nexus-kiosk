@@ -208,7 +208,7 @@ function AppInner() {
             index
             element={
               <Suspense fallback={null}>
-                <JobListView key={activeUser?.id ?? 'none'} tab="project" />
+                <JobListView key={`project-${activeUser?.id ?? 'none'}`} tab="project" />
               </Suspense>
             }
           />
@@ -216,7 +216,7 @@ function AppInner() {
             path="spare-parts"
             element={
               <Suspense fallback={null}>
-                <JobListView key={activeUser?.id ?? 'none'} tab="spare-parts" />
+                <JobListView key={`spare-${activeUser?.id ?? 'none'}`} tab="spare-parts" />
               </Suspense>
             }
           />
@@ -224,7 +224,7 @@ function AppInner() {
             path="archive"
             element={
               <Suspense fallback={null}>
-                <JobListView key={activeUser?.id ?? 'none'} tab="archive" />
+                <JobListView key={`archive-${activeUser?.id ?? 'none'}`} tab="archive" />
               </Suspense>
             }
           />

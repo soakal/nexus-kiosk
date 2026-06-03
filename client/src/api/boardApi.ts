@@ -46,7 +46,7 @@ export async function getBoardUsers(): Promise<BoardUser[]> {
   return response.json();
 }
 
-export async function importJobsJson(jobs: Job[]): Promise<{ imported: number; shippedApplied: number; skipped: number; warnings: string[]; rowErrors: string[] }> {
+export async function importJobsJson(jobs: Job[]): Promise<{ imported: number; shippedApplied: number; readyToShipApplied: number; notesImported: number; skipped: number; warnings: string[]; rowErrors: string[] }> {
   const response = await fetch('/api/board/import', {
     method: 'POST',
     headers: {
@@ -60,7 +60,7 @@ export async function importJobsJson(jobs: Job[]): Promise<{ imported: number; s
   return response.json();
 }
 
-export async function importJobsFile(file: File): Promise<{ imported: number; shippedApplied: number; skipped: number; warnings: string[]; rowErrors: string[] }> {
+export async function importJobsFile(file: File): Promise<{ imported: number; shippedApplied: number; readyToShipApplied: number; notesImported: number; skipped: number; warnings: string[]; rowErrors: string[] }> {
   const formData = new FormData();
   formData.append('file', file);
 
@@ -152,6 +152,34 @@ export async function releasePresence(jobNumber: string, userId: string): Promis
   });
 }
 
+async function boardNoteError(response: Response, fallback: string): Promise<never> {
+  let message = fallback
+  try {
+    const body = (await response.json()) as { error?: string }
+    if (body.error) message = body.error
+  } catch {
+    /* ignore */
+  }
+  throw new Error(message)
+}
+
+export async function updateJobNote(
+  jobNumber: string,
+  noteId: string,
+  text: string,
+  actor: Actor
+): Promise<JobNote> {
+  const response = await fetch(`/api/board/jobs/${jobNumber}/notes/${noteId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, actor }),
+  })
+  if (!response.ok) {
+    await boardNoteError(response, 'Failed to update note')
+  }
+  return response.json()
+}
+
 export async function deleteJobNote(
   jobNumber: string,
   noteId: string,
@@ -165,6 +193,6 @@ export async function deleteJobNote(
     body: JSON.stringify({ actor })
   });
   if (!response.ok) {
-    throw new Error(`Failed to delete job note: ${response.statusText}`);
+    await boardNoteError(response, 'Failed to delete note')
   }
 }

@@ -74,7 +74,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   const handleSelectEvent = useCallback((ev: import('../types/index').CalendarEvent) => {
     if (ev.calendarId === 'board-jobs') {
       const jobNumber = ev.id.replace('board-ship-', '');
-      navigate(`/board?job=${encodeURIComponent(jobNumber)}`);
+      const tab = ev.boardTab ?? 'project';
+      const base =
+        tab === 'spare-parts' ? '/board/spare-parts' : tab === 'archive' ? '/board/archive' : '/board';
+      navigate(`${base}?job=${encodeURIComponent(jobNumber)}`);
     }
   }, [navigate]);
 
@@ -170,7 +173,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
                   Agenda
                 </h2>
-                <AgendaRail events={events} className="min-h-0 flex-1" />
+                <AgendaRail
+                  events={events}
+                  showWeekends={config.showWeekends}
+                  className="min-h-0 flex-1"
+                  onSelectEvent={handleSelectEvent}
+                />
               </div>
             )}
 
@@ -194,7 +202,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
               Agenda
             </h2>
-            <AgendaRail events={events} className="min-h-0" />
+            <AgendaRail
+              events={events}
+              showWeekends={config.showWeekends}
+              className="min-h-0"
+              onSelectEvent={handleSelectEvent}
+            />
           </div>
         )}
 

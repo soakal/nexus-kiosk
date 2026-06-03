@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express'
 import multer from 'multer'
 import {
   parseXlsm,
-  saveJobsFile,
+  applyBoardImport,
+  mapSpreadsheetStatusToJobStatus,
+  isCancelledSpreadsheetStatus,
   getMergedJobs,
   getBoardConfig,
   saveBoardConfig,
@@ -10,10 +12,11 @@ import {
   setJobStatus,
   setShipDateOverride,
   addNote,
+  updateNote,
   deleteNote,
 } from '../services/boardService.js'
 import { STATUS_ORDER } from '../types/board.js'
-import type { Job, Actor } from '../types/board.js'
+import type { Job, JobStatus, Actor } from '../types/board.js'
 import { logger } from '../utils/logger.js'
 
 export const boardRouter = Router()
@@ -73,10 +76,14 @@ const upload = multer({
 // so any LAN client can POST arbitrary objects). Coerce known fields to safe
 // shapes and reject rows missing a usable jobNumber.
 // ---------------------------------------------------------------------------
-function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[]; importedStatuses: Record<string, 'shipped'> } {
+function validateJobsArray(raw: unknown[]): {
+  jobs: Job[]
+  errors: string[]
+  importedStatuses: Record<string, JobStatus>
+} {
   const jobs: Job[] = []
   const errors: string[] = []
-  const importedStatuses: Record<string, 'shipped'> = {}
+  const importedStatuses: Record<string, JobStatus> = {}
 
   const toStr = (v: unknown): string =>
     typeof v === 'string' ? v : v == null ? '' : String(v)
@@ -94,10 +101,11 @@ function validateJobsArray(raw: unknown[]): { jobs: Job[]; errors: string[]; imp
       errors.push(`Row ${i}: missing jobNumber`)
       return
     }
-    // Option A: only exact "Shipped" from the spreadsheet archives a job on import.
-    if (toStr(o.status).trim().toLowerCase() === 'shipped') {
-      importedStatuses[jobNumber] = 'shipped'
+    if (isCancelledSpreadsheetStatus(toStr(o.status))) {
+      return
     }
+    const mapped = mapSpreadsheetStatusToJobStatus(toStr(o.status))
+    if (mapped) importedStatuses[jobNumber] = mapped
     jobs.push({
       jobNumber,
       pm: toStr(o.pm),
@@ -123,7 +131,12 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
     let rowErrors: string[] = []
     let skipped = 0
 
-    let shippedApplied = 0
+    let applyResult = {
+      shippedApplied: 0,
+      readyToShipApplied: 0,
+      inProgressApplied: 0,
+      notesImported: 0,
+    }
 
     if (req.file) {
       const result = parseXlsm(req.file.buffer, req.file.originalname)
@@ -132,10 +145,12 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
       rowErrors = result.rowErrors
       skipped = result.skipped
       sourceFile = req.file.originalname
-      for (const [jobNumber, status] of Object.entries(result.importedStatuses)) {
-        await setJobStatus(jobNumber, status)
-        shippedApplied++
-      }
+      applyResult = await applyBoardImport(
+        jobs,
+        sourceFile,
+        result.importedStatuses,
+        result.importedNotes,
+      )
     } else if (Array.isArray(req.body.jobs)) {
       const { jobs: validated, errors: jsonErrors, importedStatuses } = validateJobsArray(req.body.jobs)
       jobs = validated
@@ -147,21 +162,34 @@ boardRouter.post('/import', upload.single('file'), async (req: Request, res: Res
         return
       }
       sourceFile = 'manual-import'
-      for (const [jobNumber, status] of Object.entries(importedStatuses)) {
-        await setJobStatus(jobNumber, status)
-        shippedApplied++
-      }
+      applyResult = await applyBoardImport(jobs, sourceFile, importedStatuses, {})
     } else {
       res.status(400).json({ error: 'No file or jobs array provided' })
       return
     }
 
-    saveJobsFile(jobs, sourceFile)
+    const { shippedApplied, readyToShipApplied, inProgressApplied, notesImported } = applyResult
     logger.info('Board import complete', {
-      sourceFile, imported: jobs.length, shippedApplied, skipped,
-      warnings: warnings.length, rowErrors: rowErrors.length,
+      sourceFile,
+      imported: jobs.length,
+      shippedApplied,
+      readyToShipApplied,
+      inProgressApplied,
+      notesImported,
+      skipped,
+      warnings: warnings.length,
+      rowErrors: rowErrors.length,
     })
-    res.json({ imported: jobs.length, shippedApplied, skipped, warnings, rowErrors })
+    res.json({
+      imported: jobs.length,
+      shippedApplied,
+      readyToShipApplied,
+      inProgressApplied,
+      notesImported,
+      skipped,
+      warnings,
+      rowErrors,
+    })
   } catch (err: unknown) {
     logger.error('Board import failed', { error: (err as Error).message })
     res.status(500).json({ error: (err as Error).message })
@@ -289,7 +317,32 @@ boardRouter.post('/jobs/:jobNumber/notes', async (req: Request, res: Response) =
 })
 
 // ---------------------------------------------------------------------------
-// DELETE /jobs/:jobNumber/notes/:noteId
+// PATCH /jobs/:jobNumber/notes/:noteId — author only
+// ---------------------------------------------------------------------------
+boardRouter.patch('/jobs/:jobNumber/notes/:noteId', async (req: Request, res: Response) => {
+  try {
+    const { text, actor } = req.body as { text?: string; actor?: Actor }
+    if (!text || !actor) {
+      res.status(400).json({ error: 'text and actor required' })
+      return
+    }
+    if (!getMergedJobs().some((j) => j.jobNumber === req.params.jobNumber)) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
+    const result = await updateNote(req.params.jobNumber, req.params.noteId, text, actor)
+    if (!result.ok) {
+      res.status(403).json({ error: result.error })
+      return
+    }
+    res.json(result.note)
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// DELETE /jobs/:jobNumber/notes/:noteId — author only
 // ---------------------------------------------------------------------------
 boardRouter.delete('/jobs/:jobNumber/notes/:noteId', async (req: Request, res: Response) => {
   try {

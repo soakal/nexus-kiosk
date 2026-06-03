@@ -3,6 +3,10 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import * as XLSX from 'xlsx'
 import { randomUUID } from 'crypto'
+import {
+  OPS_SCHEDULE_NOTE_AUTHOR_ID,
+  OPS_SCHEDULE_NOTE_AUTHOR_NAME,
+} from '../types/board.js'
 import type {
   Job,
   JobNote,
@@ -82,6 +86,54 @@ function runExclusive<T>(fn: () => T): Promise<T> {
 }
 
 // ---------------------------------------------------------------------------
+// Spreadsheet status helpers
+// ---------------------------------------------------------------------------
+/** Rows with Status "Cancelled" / "Canceled" are omitted from the board entirely. */
+export function isCancelledSpreadsheetStatus(raw: string): boolean {
+  const s = raw.trim().toLowerCase()
+  return s === 'cancelled' || s === 'canceled'
+}
+
+/** Map ops-schedule Status cell text to board workflow; null = leave board status unchanged. */
+export function mapSpreadsheetStatusToJobStatus(raw: string): JobStatus | null {
+  const s = raw.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!s || isCancelledSpreadsheetStatus(raw)) return null
+
+  if (s === 'on hold' || s.startsWith('hold')) return null
+
+  // Exact "Shipped" only — not "Partially Shipped".
+  if (s === 'shipped') return 'shipped'
+
+  if (
+    s === 'ready to ship' ||
+    s === 'ready for ship' ||
+    s === 'rts' ||
+    (s.includes('ready') && s.includes('ship') && !s.includes('partial') && !s.includes('not '))
+  ) {
+    return 'ready_to_ship'
+  }
+
+  // Ops schedule uses these for active jobs that are not yet fully shipped.
+  if (s === 'partially shipped' || (s.includes('partial') && s.includes('ship'))) {
+    return 'ready_to_ship'
+  }
+
+  if (
+    s === 'build' ||
+    s === 'design' ||
+    s === 'labor only' ||
+    s === 'parts on order' ||
+    s === 'in progress' ||
+    s === 'in-progress' ||
+    s.includes('on order')
+  ) {
+    return 'in_progress'
+  }
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
 // Date parsing helper
 // ---------------------------------------------------------------------------
 // Format a Date using its LOCAL components, not toISOString(). Excel parses
@@ -147,6 +199,7 @@ interface ColumnMap {
   shipToPm: number | null
   shipToCustomer: number | null
   status: number | null
+  notes: number | null
 }
 
 function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: string[] } {
@@ -159,6 +212,7 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
     shipToPm: null,
     shipToCustomer: null,
     status: null,
+    notes: null,
   }
 
   for (let i = 0; i < headers.length; i++) {
@@ -211,6 +265,16 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
       if (colMap.shipToCustomer === null) colMap.shipToCustomer = i
     } else if (raw.includes('status')) {
       if (colMap.status === null) colMap.status = i
+    } else if (
+      (raw === 'notes' ||
+        raw === 'note' ||
+        raw.includes('comment') ||
+        raw.includes('remark') ||
+        (raw.includes('note') && !raw.includes('ship'))) &&
+      !raw.includes('ship') &&
+      !raw.includes('status')
+    ) {
+      if (colMap.notes === null) colMap.notes = i
     }
   }
 
@@ -232,6 +296,9 @@ function detectColumns(headers: unknown[]): { colMap: ColumnMap; warnings: strin
   if (colMap.status === null) {
     warnings.push('Status column not found — shipped jobs will not be auto-archived')
   }
+  if (colMap.notes === null) {
+    warnings.push('Notes column not found — spreadsheet notes will not be imported')
+  }
 
   return { colMap, warnings }
 }
@@ -250,7 +317,7 @@ export function loadJobsFile(): JobsFile | null {
   return readJsonFile<JobsFile>(JOBS_FILE)
 }
 
-export function saveJobsFile(jobs: Job[], sourceFile: string): void {
+export async function saveJobsFile(jobs: Job[], sourceFile: string): Promise<void> {
   const existing = loadJobsFile()
   const existingNumbers = new Set(existing?.jobs.map((j) => j.jobNumber) ?? [])
 
@@ -280,11 +347,10 @@ export function saveJobsFile(jobs: Job[], sourceFile: string): void {
   // Prune orphaned board-state: notes/status/ship-date overrides for jobs no
   // longer present in the spreadsheet would otherwise accumulate forever and,
   // worse, be silently inherited if a job number is later reused.
-  // Run the prune through the exclusive mutation queue so it serializes
-  // against concurrent note/status writes — import must not race with addNote.
-  runExclusive(() => {
+  // Serialize prune after import status/note writes complete.
+  await runExclusive(() => {
     pruneOrphanedBoardState(currentNumbers)
-  }).catch(() => undefined)
+  })
 }
 
 function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
@@ -307,7 +373,14 @@ function pruneOrphanedBoardState(validJobNumbers: Set<string>): void {
 export function parseXlsm(
   buffer: Buffer,
   originalName: string,
-): { jobs: Job[]; warnings: string[]; rowErrors: string[]; skipped: number; importedStatuses: Record<string, JobStatus> } {
+): {
+  jobs: Job[]
+  warnings: string[]
+  rowErrors: string[]
+  skipped: number
+  importedStatuses: Record<string, JobStatus>
+  importedNotes: Record<string, string>
+} {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true })
 
   // Prefer "Active Projects" sheet; fall back to first sheet
@@ -321,7 +394,14 @@ export function parseXlsm(
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) as unknown[][]
 
   if (rows.length < 2) {
-    return { jobs: [], warnings: ['Spreadsheet is empty'], rowErrors: [], skipped: 0, importedStatuses: {} }
+    return {
+      jobs: [],
+      warnings: ['Spreadsheet is empty'],
+      rowErrors: [],
+      skipped: 0,
+      importedStatuses: {},
+      importedNotes: {},
+    }
   }
 
   // Active Projects has a numeric index row first — real headers are in row index 1
@@ -335,6 +415,7 @@ export function parseXlsm(
 
   const jobs: Job[] = []
   const importedStatuses: Record<string, JobStatus> = {}
+  const importedNotes: Record<string, string> = {}
   const rowErrors: string[] = []
   let skipped = 0
   const seenJobNumbers = new Set<string>()
@@ -361,7 +442,22 @@ export function parseXlsm(
       return parseDateValue(row[col])
     }
 
+    const getNoteText = (col: number | null): string => {
+      if (col === null) return ''
+      const val = row[col]
+      if (val == null) return ''
+      return String(val).trim()
+    }
+
     const jobNumber = String(jobNumberRaw).trim()
+
+    if (colMap.status !== null) {
+      const rawStatus = String(row[colMap.status] ?? '').trim()
+      if (isCancelledSpreadsheetStatus(rawStatus)) {
+        skipped++
+        continue
+      }
+    }
 
     if (seenJobNumbers.has(jobNumber)) {
       rowErrors.push(`Row ${r + 1}: duplicate job number ${jobNumber}`)
@@ -380,20 +476,92 @@ export function parseXlsm(
       shipToCustomer: getDate(colMap.shipToCustomer),
     }
 
-    // Read Status column if present — map spreadsheet text to JobStatus.
-    // Only "Shipped" is authoritative from the spreadsheet; other statuses
-    // are managed within the app and are not overwritten by import.
+    // Status column: "Shipped" → archive; "Ready to Ship" → ready_to_ship checkmarks.
     if (colMap.status !== null) {
-      const rawStatus = String(row[colMap.status] ?? '').trim().toLowerCase()
-      if (rawStatus === 'shipped') {
-        importedStatuses[jobNumber] = 'shipped'
-      }
+      const mapped = mapSpreadsheetStatusToJobStatus(String(row[colMap.status] ?? ''))
+      if (mapped) importedStatuses[jobNumber] = mapped
     }
+
+    const noteText = getNoteText(colMap.notes)
+    if (noteText) importedNotes[jobNumber] = noteText
 
     jobs.push(job)
   }
 
-  return { jobs, warnings, rowErrors, skipped, importedStatuses }
+  return { jobs, warnings, rowErrors, skipped, importedStatuses, importedNotes }
+}
+
+/** Merge spreadsheet notes as a single Ops Schedule note per job; never remove or edit user notes. */
+export function mergeImportedOpsScheduleNotes(importedNotes: Record<string, string>): Promise<number> {
+  return runExclusive(() => {
+    const state = getBoardStateFile()
+    let changed = false
+    let merged = 0
+    const now = new Date().toISOString()
+
+    for (const [jobNumber, rawText] of Object.entries(importedNotes)) {
+      const text = rawText.trim()
+      if (!text) continue
+
+      const existing = state[jobNumber] ?? {
+        status: 'none' as JobStatus,
+        shipDateOverride: null,
+        notes: [],
+        updatedAt: '',
+      }
+
+      const userNotes = existing.notes.filter((n) => n.authorId !== OPS_SCHEDULE_NOTE_AUTHOR_ID)
+      const existingOps = existing.notes.find((n) => n.authorId === OPS_SCHEDULE_NOTE_AUTHOR_ID)
+      if (existingOps?.text === text) continue
+
+      const opsNote: JobNote = {
+        id: existingOps?.id ?? generateNoteId(),
+        authorId: OPS_SCHEDULE_NOTE_AUTHOR_ID,
+        authorName: OPS_SCHEDULE_NOTE_AUTHOR_NAME,
+        text,
+        createdAt: existingOps?.createdAt ?? now,
+      }
+
+      state[jobNumber] = {
+        ...existing,
+        notes: [...userNotes, opsNote],
+        updatedAt: now,
+      }
+      changed = true
+      merged++
+    }
+
+    if (changed) writeBoardState(state)
+    return merged
+  })
+}
+
+export interface BoardImportApplyResult {
+  shippedApplied: number
+  readyToShipApplied: number
+  inProgressApplied: number
+  notesImported: number
+}
+
+/** Apply status + ops notes to board-state, then save jobs.json (full import pipeline). */
+export async function applyBoardImport(
+  jobs: Job[],
+  sourceFile: string,
+  importedStatuses: Record<string, JobStatus>,
+  importedNotes: Record<string, string>,
+): Promise<BoardImportApplyResult> {
+  let shippedApplied = 0
+  let readyToShipApplied = 0
+  let inProgressApplied = 0
+  for (const [jobNumber, status] of Object.entries(importedStatuses)) {
+    await setJobStatus(jobNumber, status)
+    if (status === 'shipped') shippedApplied++
+    else if (status === 'ready_to_ship') readyToShipApplied++
+    else if (status === 'in_progress') inProgressApplied++
+  }
+  const notesImported = await mergeImportedOpsScheduleNotes(importedNotes)
+  await saveJobsFile(jobs, sourceFile)
+  return { shippedApplied, readyToShipApplied, inProgressApplied, notesImported }
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +666,44 @@ export function addNote(jobNumber: string, text: string, actor: Actor): Promise<
   })
 }
 
+export function updateNote(
+  jobNumber: string,
+  noteId: string,
+  text: string,
+  actor: Actor,
+): Promise<{ ok: boolean; note?: JobNote; error?: string }> {
+  return runExclusive(() => {
+    const trimmed = text.trim()
+    if (!trimmed) return { ok: false, error: 'Note text cannot be empty' }
+
+    const state = getBoardStateFile()
+    const existing = state[jobNumber]
+    if (!existing) return { ok: false, error: 'Job not found' }
+
+    const note = existing.notes.find((n) => n.id === noteId)
+    if (!note) return { ok: false, error: 'Note not found' }
+    if (note.authorId === OPS_SCHEDULE_NOTE_AUTHOR_ID) {
+      return { ok: false, error: 'Ops Schedule notes cannot be edited' }
+    }
+    if (note.authorId !== actor.id) {
+      return { ok: false, error: 'Only the author can edit this note' }
+    }
+
+    const updated: JobNote = {
+      ...note,
+      text: trimmed,
+      updatedAt: new Date().toISOString(),
+    }
+    state[jobNumber] = {
+      ...existing,
+      notes: existing.notes.map((n) => (n.id === noteId ? updated : n)),
+      updatedAt: new Date().toISOString(),
+    }
+    writeBoardState(state)
+    return { ok: true, note: updated }
+  })
+}
+
 export function deleteNote(jobNumber: string, noteId: string, actor: Actor): Promise<{ ok: boolean; error?: string }> {
   return runExclusive(() => {
     const state = getBoardStateFile()
@@ -505,7 +711,11 @@ export function deleteNote(jobNumber: string, noteId: string, actor: Actor): Pro
     if (!existing) return { ok: true }
 
     const note = existing.notes.find((n) => n.id === noteId)
-    if (note && note.authorId !== actor.id) {
+    if (!note) return { ok: false, error: 'Note not found' }
+    if (note.authorId === OPS_SCHEDULE_NOTE_AUTHOR_ID) {
+      return { ok: false, error: 'Ops Schedule notes cannot be deleted' }
+    }
+    if (note.authorId !== actor.id) {
       return { ok: false, error: 'Only the author can delete this note' }
     }
 
@@ -577,6 +787,46 @@ export function getMergedJobs(): BoardJob[] {
       isNew: newSet.has(job.jobNumber),
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// Board tab routing (calendar → correct Projects tab)
+// ---------------------------------------------------------------------------
+export type BoardTab = 'project' | 'spare-parts' | 'archive'
+
+export function isSpareJob(job: Pick<Job, 'jobNumber' | 'pm'>, config: BoardConfig): boolean {
+  const spare = (config.spareCarrier ?? '').trim().toLowerCase()
+  const pm = (job.pm ?? '').trim().toLowerCase()
+  return pm === spare || job.jobNumber.toLowerCase().startsWith('sp')
+}
+
+export function getJobBoardTab(
+  job: { jobNumber: string; pm: string; status: JobStatus },
+  config: BoardConfig,
+): BoardTab {
+  if (job.status === 'shipped') return 'archive'
+  if (isSpareJob(job, config)) return 'spare-parts'
+  return 'project'
+}
+
+/** Human-readable PM label for calendar / UI (jobs store PM lowercased from import). */
+export function formatJobPmLabel(pm: string): string {
+  const t = pm.trim()
+  if (!t) return 'No PM'
+  if (t.includes('@')) {
+    const local = t.split('@')[0] ?? t
+    return local
+      .replace(/[._-]+/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  }
+  return t
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 // ---------------------------------------------------------------------------

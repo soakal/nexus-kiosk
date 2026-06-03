@@ -3,7 +3,9 @@ import { CalendarEvent } from '../types/index';
 
 interface AgendaRailProps {
   events: CalendarEvent[];
+  showWeekends?: boolean;
   className?: string;
+  onSelectEvent?: (event: CalendarEvent) => void;
 }
 
 function formatTime(iso: string): string {
@@ -33,7 +35,18 @@ function addDays(d: Date, n: number): Date {
   return result;
 }
 
-const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
+const AgendaRail: React.FC<AgendaRailProps> = ({
+  events,
+  showWeekends = true,
+  className = '',
+  onSelectEvent,
+}) => {
+  const visibleEvents = showWeekends
+    ? events
+    : events.filter((ev) => {
+        const day = new Date(ev.startDateTime).getDay();
+        return day !== 0 && day !== 6;
+      });
   const now = new Date();
   const todayStart = startOfDay(now);
   const tomorrowStart = addDays(todayStart, 1);
@@ -42,7 +55,7 @@ const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
   const todayEvents: CalendarEvent[] = [];
   const tomorrowEvents: CalendarEvent[] = [];
 
-  for (const ev of events) {
+  for (const ev of visibleEvents) {
     const start = new Date(ev.startDateTime);
     const end = new Date(ev.endDateTime);
 
@@ -72,13 +85,29 @@ const AgendaRail: React.FC<AgendaRailProps> = ({ events, className = '' }) => {
     const accent = event.calendarColor || '#3b82f6';
 
     const secondaryParts: string[] = [];
-    if (event.location) secondaryParts.push(event.location);
-    if (event.calendarName) secondaryParts.push(event.calendarName);
+    if (event.bodyPreview) secondaryParts.push(event.bodyPreview);
+    else if (event.location) secondaryParts.push(event.location);
+    if (event.calendarId !== 'board-jobs' && event.calendarName) {
+      secondaryParts.push(event.calendarName);
+    }
+
+    const isBoardJob = event.calendarId === 'board-jobs';
 
     return (
       <div
         key={event.id}
-        className="flex items-stretch gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
+        role={isBoardJob && onSelectEvent ? 'button' : undefined}
+        tabIndex={isBoardJob && onSelectEvent ? 0 : undefined}
+        onClick={() => isBoardJob && onSelectEvent?.(event)}
+        onKeyDown={(e) => {
+          if (isBoardJob && onSelectEvent && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onSelectEvent(event);
+          }
+        }}
+        className={`flex items-stretch gap-2.5 rounded-lg px-2 py-1.5 transition-colors ${
+          isBoardJob && onSelectEvent ? 'cursor-pointer hover:bg-white/10' : 'hover:bg-white/5'
+        }`}
       >
         {/* Time column */}
         <div className="flex w-14 flex-shrink-0 flex-col items-end justify-center text-right">

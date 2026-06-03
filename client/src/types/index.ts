@@ -31,6 +31,8 @@ export interface CalendarEvent {
   calendarColor: string;
   bodyPreview: string;
   location?: string;
+  /** Ship-date events: which Projects tab owns this job */
+  boardTab?: 'project' | 'spare-parts' | 'archive';
 }
 
 export interface AppConfig {

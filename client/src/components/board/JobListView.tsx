@@ -1,10 +1,10 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useBoardJobs, useBoardConfig, useBoardUsers, useUpdateBoardConfig } from '../../hooks/useBoard'
 import { useAppStore } from '../../store/appStore'
 import { JobCard } from './JobCard'
-import { isSpareJob } from './boardColors'
+import { filterJobsForTab, sortBoardJobsByShipDate } from './boardColors'
 import { BoardJob } from '../../types/board'
 
 interface Props {
@@ -20,6 +20,7 @@ export function JobListView({ tab }: Props) {
   const updateConfig = useUpdateBoardConfig()
   const { activeUser } = useAppStore()
   const queryClient = useQueryClient()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [showAll, setShowAll] = useState(false)
   const [inputValue, setInputValue] = useState('')
@@ -83,11 +84,10 @@ export function JobListView({ tab }: Props) {
     return () => el.removeEventListener('scroll', onScroll)
   }, [scrollKey])
 
-  // Refetch fresh data whenever the active user changes
-  // (local state resets are handled by key={activeUser?.id} on the route)
+  // Refetch when user or tab changes (local state resets via route key)
   useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['board'] })
-  }, [activeUser?.id])
+    void queryClient.refetchQueries({ queryKey: ['board', 'jobs'] })
+  }, [activeUser?.id, location.pathname, queryClient])
 
   // Scroll to top on new committed search (suppressed when restoring saved search)
   useLayoutEffect(() => {
@@ -142,16 +142,7 @@ export function JobListView({ tab }: Props) {
   const isSuper = !!config.superUser && norm(activeUser?.name) === norm(config.superUser)
   const pmUsers = users.filter((u) => u.role === 'pm')
 
-  // Step 1: tab filter
-  // - project: non-spare, non-shipped active jobs
-  // - spare-parts: spare jobs, non-shipped
-  // - archive: all shipped jobs regardless of spare/project
-  const tabFiltered: BoardJob[] =
-    tab === 'archive'
-      ? jobs.filter((j) => j.status === 'shipped')
-      : tab === 'spare-parts'
-      ? jobs.filter((j) => isSpareJob(j, config) && j.status !== 'shipped')
-      : jobs.filter((j) => !isSpareJob(j, config) && j.status !== 'shipped')
+  const tabFiltered = filterJobsForTab(jobs, tab, config)
 
   if (tab === 'archive' && tabFiltered.length === 0) {
     return (
@@ -183,14 +174,7 @@ export function JobListView({ tab }: Props) {
       )
     : filtered
 
-  // Archive: most recently shipped first. Other tabs: ascending by ship date, nulls last.
-  const sorted = [...searched].sort((a, b) => {
-    if (!a.effectiveShipDate && !b.effectiveShipDate) return 0
-    if (!a.effectiveShipDate) return 1
-    if (!b.effectiveShipDate) return -1
-    const cmp = a.effectiveShipDate.localeCompare(b.effectiveShipDate)
-    return tab === 'archive' ? -cmp : cmp
-  })
+  const sorted = sortBoardJobsByShipDate(searched, tab)
 
   const canToggle = tab !== 'spare-parts' && tab !== 'archive' && !!activeUser && !isSuper && activeUser.role !== 'manual'
   const spareNotConfigured = tab === 'spare-parts' && !spare
@@ -285,7 +269,11 @@ export function JobListView({ tab }: Props) {
         <div className="flex items-center justify-between mt-2">
           <p className="text-slate-500 text-sm">
             {sorted.length} job{sorted.length !== 1 ? 's' : ''}
-            {q ? ` matching "${search.trim()}"` : ' · sorted by ship date'}
+            {q
+              ? ` matching "${search.trim()}"`
+              : tab === 'archive'
+              ? ' · newest ship date first'
+              : ' · soonest ship date first'}
           </p>
           {canToggle && (
             <div className="flex items-center gap-1 bg-slate-800 rounded-lg p-0.5">
